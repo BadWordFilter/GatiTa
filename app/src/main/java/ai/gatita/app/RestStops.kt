@@ -28,6 +28,21 @@ object RestStops {
         return all.minBy { km(lat, lon, it.lat, it.lon) }
     }
 
+    /**
+     * 진행 방향 앞쪽에서 가장 가까운 휴게소. 경부고속도로는 대체로 남북으로 달리므로
+     * 진행 방향(heading, 0=북쪽)이 남쪽이면 부산방향 휴게소 중 현재보다 남쪽에 있는 곳만,
+     * 북쪽이면 서울방향 휴게소 중 북쪽에 있는 곳만 고릅니다. 방향을 모르거나 후보가 없으면 가장 가까운 곳.
+     */
+    fun nearestAhead(lat: Double?, lon: Double?, heading: Double?): Stop {
+        if (lat == null || lon == null || heading == null) return nearest(lat, lon)
+        val h = ((heading % 360) + 360) % 360
+        val south = h in 90.0..270.0
+        val ahead = all.filter { s ->
+            if (south) s.name.contains("부산방향") && s.lat < lat else s.name.contains("서울방향") && s.lat > lat
+        }
+        return ahead.minByOrNull { km(lat, lon, it.lat, it.lon) } ?: nearest(lat, lon)
+    }
+
     fun km(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
         val r = 6371.0
         val dLat = Math.toRadians(lat2 - lat1); val dLon = Math.toRadians(lon2 - lon1)

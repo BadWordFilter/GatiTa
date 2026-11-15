@@ -156,17 +156,18 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
         val kids = count(Rider.KID)
         val pet = count(Rider.PET) > 0
         mode = when { kids > 0 -> Mode.KID; pet -> Mode.PET; else -> Mode.SOLO }
-        if (pet) vehicle.setRearWindow(PET_WINDOW_LIMIT)
+        // 창문을 여는 일은 없고, 반려동물이 타면 뒷창이 환기 높이보다 더 열리지 않게 지키기만 합니다
+        vehicle.guardRearWindows = pet
         when (mode) {
             Mode.KID -> {
                 val r = if (remainSec > 0) remainSec else 800
                 story.plan(r); lastStoriesLeft = story.storiesLeft(r)
                 ambient(Pal.KID)
-                voice.say("좋아요. 도착할 때까지 이야기 ${lastStoriesLeft}개를 준비했어요." + if (pet) " 뒷창은 환기만 되게 열어 둘게요." else "")
+                voice.say("좋아요. 도착할 때까지 이야기 ${lastStoriesLeft}개를 준비했어요." + if (pet) " 뒷창은 환기 높이 이상 열리지 않게 지킬게요." else "")
             }
             Mode.PET -> {
                 ambient(Pal.PET)
-                voice.say("반려동물이 함께 타서 뒷창은 환기만 되게 열어 둘게요.")
+                voice.say("반려동물이 함께 타서 뒷창이 환기 높이 이상 열리지 않게 지킬게요.")
             }
             else -> {
                 ambient(Pal.SOLO)
@@ -181,6 +182,10 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
         override fun run() {
             if (!naviLive && remainSec > 0 && !parked) remainSec = (remainSec - SIM_SPEED).coerceAtLeast(0)
             if (!parked) driveSeconds++
+            // 대답도 좌석 선택도 없이 출발하면 잠시 뒤 혼자 운전으로 시작
+            if (mode == Mode.ASK && !parked && driveSeconds >= ASK_TIMEOUT_DRIVE_SEC) startTrip()
+            // 휴게소 방향 판단에 쓰도록 주행 중에는 10초마다 현재 위치(진행 방향 포함)를 새로 받음
+            if (!parked && driveSeconds % 10 == 0) navi.requestLocation()
             when (mode) {
                 Mode.KID -> kidTick()
                 Mode.SOLO -> soloTick()
@@ -301,11 +306,10 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
         }
     }.let { }
 
-    override fun onRearWindow(position: Int) = ui.post {
-        if (count(Rider.PET) > 0 && mode != Mode.ASK && position > PET_WINDOW_LIMIT) {
-            vehicle.setRearWindow(PET_WINDOW_LIMIT)
-            voice.say("창문이 너무 많이 열렸어요. 환기만 되게 다시 맞출게요.")
-        }
+    override fun onRearWindow(position: Int) {}
+
+    override fun onRearWindowClamped() = ui.post {
+        voice.say("창문이 너무 많이 열렸어요. 환기만 되게 다시 맞출게요.")
     }.let { }
 
     override fun onRemainSeconds(sec: Int, destination: String) = ui.post {
@@ -616,8 +620,8 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
 
     companion object {
         private const val TAG = "GatiTa"
-        // shortcut: 시연용 값. 반려동물 모드는 "환기만 되는 정도"가 목표라, 차종별 창문 위치 단위를 확인해 이 값을 낮춰야 함
-        private const val PET_WINDOW_LIMIT = 20
+        /** 탑승자를 묻는 동안 대답 없이 이만큼 주행하면 혼자 운전으로 보고 시작합니다 */
+        private const val ASK_TIMEOUT_DRIVE_SEC = 10
         private const val SOLO_ALERT_SEC = 60      // 시연용. 실제 서비스는 연속 주행 시간·시간대·응답 지연으로 판단
         private const val SIM_SPEED = 10           // 시뮬레이션 경로: 1초에 10초씩 줄어듦
 
@@ -626,17 +630,30 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
          * 운전석은 어른, 조수석은 어르신·어른 한 명, 아이·반려동물은 뒷좌석(창가 먼저, 가운데 마지막).
          */
         internal fun parseRiders(t: String): Map<Seat, Rider>? {
-            val kidWords = listOf("아이", "애들", "애기", "아기", "아들", "딸")
+            val kidWords = listOf("아이", "애들", "애기", "아기", "아들", "딸", "손주", "애")
             val elderWords = listOf("할머니", "할아버지", "어르신", "부모님")
             val adultWords = listOf("엄마", "아빠", "남편", "아내", "와이프", "친구")
             val petWords = listOf("강아지", "고양이", "반려", "멍멍이")
-            val kids = if (kidWords.none { t.contains(it) }) 0 else when {
-                t.contains("셋") || t.contains("세 명") -> 3
-                t.contains("둘") || t.contains("두 명") || t.contains("애들") -> 2
+            // 숫자 말("둘", "세 명")이 있으면 그 수를 씁니다
+            val number = when {
+                Regex("넷|네 ?명").containsMatchIn(t) -> 4
+                Regex("셋|세 ?명").containsMatchIn(t) -> 3
+                Regex("둘|두 ?명").containsMatchIn(t) -> 2
+                else -> null
+            }
+            val hasKid = kidWords.any { t.contains(it) }
+            val hasFriend = t.contains("친구")
+            // "아들 하나 딸 하나"처럼 아이를 하나씩 말하면 그 횟수를 셉니다
+            val namedKids = listOf("아들", "딸", "손주").sumOf { w -> Regex(w).findAll(t).count() }
+            val kids = when {
+                !hasKid -> 0
+                number != null && !hasFriend -> number
+                namedKids > 1 -> namedKids
+                t.contains("애들") -> 2
                 else -> 1
             }
             val elders = elderWords.count { t.contains(it) }
-            val adults = adultWords.count { t.contains(it) }
+            val adults = adultWords.count { t.contains(it) } + (if (hasFriend && number != null && !hasKid) number - 1 else 0)
             val pet = petWords.any { t.contains(it) }
             if (kids == 0 && elders == 0 && adults == 0 && !pet && !t.contains("혼자")) return null
 

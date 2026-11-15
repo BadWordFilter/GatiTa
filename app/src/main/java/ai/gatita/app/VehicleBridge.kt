@@ -20,6 +20,8 @@ class VehicleBridge(context: Context, private val events: Events) {
         fun onGear(parked: Boolean, label: String)
         fun onDoor(door: DoorValue, open: Boolean)
         fun onRearWindow(position: Int)
+        /** 반려동물 보호 중 창문이 환기 높이 이상 열려 되돌렸을 때 */
+        fun onRearWindowClamped()
         fun onLog(msg: String)
     }
 
@@ -29,6 +31,13 @@ class VehicleBridge(context: Context, private val events: Events) {
     @Volatile private var ambientAreas: List<SeatArea> = emptyList()
     @Volatile private var rearWindows: List<WindowArea> = emptyList()
     @Volatile private var pendingAmbient: Int? = null
+    // 창문 위치 값의 범위(차종마다 다름, 에뮬레이터는 0~10). capability 조회 결과로 채웁니다.
+    @Volatile private var windowMin = 0
+    @Volatile private var windowMax = 10
+    /** true면 뒷창이 환기 높이보다 더 열릴 때 그 창만 환기 높이로 되돌립니다 (반려동물 보호) */
+    @Volatile var guardRearWindows = false
+    /** 환기 높이: 범위의 20% (0~10이면 2). 닫힌 창을 이 값으로 여는 일은 없습니다 */
+    val ventPosition get() = windowMin + Math.ceil((windowMax - windowMin) * VENT_RATIO).toInt()
 
     fun start() {
         safe("initialize") { vehicle.initialize() }
@@ -60,10 +69,19 @@ class VehicleBridge(context: Context, private val events: Events) {
             val window = vehicle.getWindow()
             window.checkWindowPositionCapabilities({ _, map ->
                 rearWindows = map.keys.filter { a -> a.values.any { it == WindowValue.ROW_2_LEFT || it == WindowValue.ROW_2_RIGHT } }
-                events.onLog("뒷좌석 창문 영역 ${rearWindows.size}개")
+                rearWindows.firstOrNull()?.let { a -> map[a]?.let { b -> windowMin = b.minValue; windowMax = b.maxValue } }
+                events.onLog("뒷좌석 창문 영역 ${rearWindows.size}개, 범위 $windowMin~$windowMax, 환기 높이 $ventPosition")
                 rearWindows.forEach { area ->
                     window.registerWindowPosition(area, object : WindowPositionListener {
-                        override fun onWindowPositionUpdated(position: Int?) = events.onRearWindow(position ?: 0)
+                        override fun onWindowPositionUpdated(position: Int?) {
+                            val pos = position ?: 0
+                            events.onRearWindow(pos)
+                            if (guardRearWindows && pos > ventPosition) {
+                                // 더 열린 그 창만 닫는 방향으로 되돌림
+                                window.setWindowPosition(area, ventPosition, { _, _ -> }, { e -> fail("window set", e) })
+                                events.onRearWindowClamped()
+                            }
+                        }
                         override fun onFailed(e: Exception) = fail("window", e)
                     })
                 }
@@ -79,12 +97,6 @@ class VehicleBridge(context: Context, private val events: Events) {
         }
     }
 
-    /** 뒷좌석 창문을 지정 위치로 (반려동물 모드의 열림 제한) */
-    fun setRearWindow(position: Int) = safe("window set") {
-        rearWindows.forEach { area ->
-            vehicle.getWindow().setWindowPosition(area, position, { _, _ -> }, { e -> fail("window set", e) })
-        }
-    }
 
     fun release() = safe("release") { vehicle.release() }
 
@@ -103,5 +115,8 @@ class VehicleBridge(context: Context, private val events: Events) {
         try { block() } catch (t: Throwable) { Log.w(TAG, what, t); events.onLog("Vehicle $what 오류: ${t.message}") }
     }
 
-    companion object { private const val TAG = "GatiTa" }
+    companion object {
+        private const val TAG = "GatiTa"
+        private const val VENT_RATIO = 0.2
+    }
 }

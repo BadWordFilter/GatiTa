@@ -24,6 +24,7 @@
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
         <activity
             android:name=".MainActivity"
+            android:launchMode="singleTask"
             android:exported="true"
             android:screenOrientation="landscape">
             <!-- 주행 중에도 실행 가능하도록 운전자 주의분산 최적화 선언 -->

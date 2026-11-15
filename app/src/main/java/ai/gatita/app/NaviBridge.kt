@@ -27,6 +27,7 @@ class NaviBridge(context: Context, private val events: Events) {
     private val navi = NaviHelper(context)
     @Volatile private var lat: Double? = null
     @Volatile private var lon: Double? = null
+    @Volatile private var heading: Double? = null
     @Volatile private var hasRoute = false
 
     private val listener = object : NaviHelperEventListener {
@@ -37,6 +38,7 @@ class NaviBridge(context: Context, private val events: Events) {
         }
         override fun onCurrentLocationInfo(currentLocationInfo: CurrentLocationInfo) {
             lat = currentLocationInfo.latitude; lon = currentLocationInfo.longitude
+            heading = currentLocationInfo.heading
             events.onAddress(currentLocationInfo.address)
         }
         override fun onDestinationArrived(destinationArrivedInfo: DestinationArrivedInfo) { hasRoute = false; events.onArrived() }
@@ -62,7 +64,7 @@ class NaviBridge(context: Context, private val events: Events) {
     /** 지금 위치에서 가장 가까운 휴게소와 직선거리(km). 위치를 모르면 거리는 null */
     fun nearestStop(): Pair<RestStops.Stop, Double?> {
         val la = lat; val lo = lon
-        val stop = RestStops.nearest(la, lo)
+        val stop = RestStops.nearestAhead(la, lo, heading)
         return stop to if (la != null && lo != null) RestStops.km(la, lo, stop.lat, stop.lon) else null
     }
 
@@ -71,7 +73,7 @@ class NaviBridge(context: Context, private val events: Events) {
      * 안내 중인 경로가 없으면 휴게소를 목적지로 경로 안내를 시작합니다.
      */
     fun addRestStop(): RestStops.Stop {
-        val stop = RestStops.nearest(lat, lon)
+        val stop = RestStops.nearestAhead(lat, lon, heading)
         runCatching {
             if (hasRoute) {
                 navi.addWaypoint(RequestWaypointInfo(stop.lat, stop.lon, stop.name, WaypointIndex.FIRST, "", "", "", ""))
@@ -82,6 +84,11 @@ class NaviBridge(context: Context, private val events: Events) {
             }
         }.onFailure { events.onLog("휴게소 안내 실패: ${it.message}") }
         return stop
+    }
+
+    /** 현재 위치(진행 방향 포함)를 다시 요청합니다. 결과는 onCurrentLocationInfo로 옵니다 */
+    fun requestLocation() {
+        runCatching { navi.getCurrentLocationInfo() }.onFailure { events.onLog("위치 요청 실패: ${it.message}") }
     }
 
     fun release() = runCatching { navi.removeListener(listener); navi.release() }

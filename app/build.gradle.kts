@@ -40,6 +40,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
+    testOptions { unitTests.isReturnDefaultValues = true }
 }
 
 dependencies {
@@ -48,4 +49,5 @@ dependencies {
     implementation("ai.pleos.playground:TextToSpeech:3.3.1")
     implementation("ai.pleos.playground:SpeechToText:3.3.1")
     implementation("androidx.core:core-ktx:1.12.0")
+    testImplementation("junit:junit:4.13.2")
 }
