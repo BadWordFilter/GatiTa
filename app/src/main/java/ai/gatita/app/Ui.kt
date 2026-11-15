@@ -227,7 +227,8 @@ class WaveView(ctx: Context, var color: Int, private val bars: Int = 56) : View(
     private var shown = 0f
     private val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeCap = Paint.Cap.ROUND; style = Paint.Style.STROKE }
 
-    init { setLayerType(LAYER_TYPE_SOFTWARE, null) }
+    // GPU로 그립니다(API 28+는 하드웨어 가속에서도 setShadowLayer 지원). 소프트웨어 모드로 초당 60번
+    // 빛번짐을 그리면 CPU를 크게 차지해, 바로 그때 나오는 안내 음성이 오디오 출력 지연으로 끊겼습니다.
 
     override fun onDraw(c: Canvas) {
         shown += (level - shown) * .25f
@@ -243,8 +244,10 @@ class WaveView(ctx: Context, var color: Int, private val bars: Int = 56) : View(
             val x = gap * (i + .5f)
             c.drawLine(x, mid - h, x, mid + h, p)
         }
-        if (isShown) postInvalidateOnAnimation()
+        if (isShown) postInvalidateDelayed(FRAME_MS)   // 30fps면 파형 움직임은 충분히 부드럽습니다
     }
+
+    private companion object { const val FRAME_MS = 33L }
 }
 
 /** 이번 이야기 진행 링: 테두리가 지나간 만큼 = 들은 만큼, 끝에 빛나는 점 */
@@ -262,34 +265,56 @@ class RingView(ctx: Context, private val color: Int) : DesignView(ctx, 640f, 640
 }
 
 /** 위에서 본 차(가로, 오른쪽이 앞). 빈자리는 점선 + 물음표, 탄 자리는 그 사람 색으로 빛남. 눌러서 바꿀 수 있음 */
-class SeatMapView(ctx: Context, private val riders: Map<Seat, Rider>, private val onTap: (Seat) -> Unit) : DesignView(ctx, 1200f, 520f) {
+/**
+ * 위에서 본 차와 좌석. 앞이 위쪽(화면의 질문·파형 쪽)을 향해, 차에 앉아 앞을 보는 방향과 같습니다.
+ * 운전석(왼쪽 앞)은 항상 운전자라 고르지 않고, 나머지 좌석만 눌러서 바꿉니다.
+ */
+class SeatMapView(ctx: Context, private val riders: Map<Seat, Rider>, private val onTap: (Seat) -> Unit) : DesignView(ctx, 560f, 720f) {
     private val rects = mapOf(
-        Seat.D to RectF(760f, 92f, 950f, 242f), Seat.P to RectF(760f, 278f, 950f, 428f),
-        Seat.RL to RectF(430f, 80f, 620f, 190f), Seat.RM to RectF(430f, 205f, 620f, 315f), Seat.RR to RectF(430f, 330f, 620f, 440f),
+        Seat.D to RectF(110f, 230f, 260f, 360f), Seat.P to RectF(300f, 230f, 450f, 360f),
+        Seat.RL to RectF(96f, 430f, 214f, 550f), Seat.RM to RectF(221f, 430f, 339f, 550f), Seat.RR to RectF(346f, 430f, 464f, 550f),
     )
-    private val curves = svgPath("M1010 90Q1070 260 1010 430M220 100Q180 260 220 420")
+    // 앞유리(위)와 뒷유리(아래) 곡선
+    private val curves = svgPath("M110 150Q280 95 450 150M120 630Q280 670 440 630")
     private val q = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        textAlign = Paint.Align.CENTER; textSize = 84f; color = Pal.KID; typeface = Typeface.create(Typeface.DEFAULT, 200, false)
+        textAlign = Paint.Align.CENTER; textSize = 72f; color = Pal.KID; typeface = Typeface.create(Typeface.DEFAULT, 200, false)
+    }
+    private val label = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER; textSize = 26f; color = Pal.MUTE; typeface = Typeface.create(Typeface.DEFAULT, 500, false)
     }
 
-    init { contentDescription = "좌석을 눌러 탑승자를 고르세요" }
+    init { contentDescription = "운전석을 뺀 좌석을 눌러 탑승자를 고르세요. 위쪽이 차의 앞입니다" }
 
     override fun paint(c: Canvas) {
         stroke(Pal.alpha(Color.WHITE, .4f), 2.6f)
-        c.drawRoundRect(RectF(40f, 30f, 1160f, 490f), 210f, 210f, p)
+        c.drawRoundRect(RectF(40f, 20f, 520f, 700f), 200f, 200f, p)
         c.drawPath(curves, p)
+        // 운전대: 운전석 위
+        stroke(Pal.alpha(Color.WHITE, .55f), 4f)
+        c.drawCircle(185f, 190f, 26f, p); c.drawLine(159f, 190f, 211f, 190f, p); c.drawLine(185f, 190f, 185f, 216f, p)
         rects.forEach { (seat, r) ->
             val who = riders[seat] ?: Rider.NONE
-            if (who == Rider.NONE) {
-                fill(Pal.alpha(Pal.KID, .05f)); c.drawRoundRect(r, 36f, 36f, p)
-                stroke(Pal.KID, 3f, 8f); p.pathEffect = DashPathEffect(floatArrayOf(12f, 10f), 0f); c.drawRoundRect(r, 36f, 36f, p)
-                c.drawText("?", r.centerX(), r.centerY() + 30f, q)
-            } else {
-                fill(Pal.alpha(who.color, .08f)); c.drawRoundRect(r, 36f, 36f, p)
-                stroke(who.color, 3.5f, 10f); c.drawRoundRect(r, 36f, 36f, p)
-                val z = if (who == Rider.KID) 84f else 104f
-                p.clearShadowLayer()
-                Fig.draw(c, who, r.centerX() - z / 2, r.centerY() - z / 2 + 4f, z, p)
+            when {
+                seat == Seat.D -> {
+                    // 운전자: 고정, 흐린 색으로 표시
+                    fill(Pal.alpha(Color.WHITE, .04f)); c.drawRoundRect(r, 32f, 32f, p)
+                    stroke(Pal.alpha(Color.WHITE, .35f), 3f); c.drawRoundRect(r, 32f, 32f, p)
+                    p.clearShadowLayer()
+                    Fig.draw(c, Rider.ADULT, r.centerX() - 40f, r.centerY() - 52f, 80f, p, Pal.alpha(Color.WHITE, .55f))
+                    c.drawText("운전자", r.centerX(), r.bottom - 14f, label)
+                }
+                who == Rider.NONE -> {
+                    fill(Pal.alpha(Pal.KID, .05f)); c.drawRoundRect(r, 32f, 32f, p)
+                    stroke(Pal.KID, 3f, 8f); p.pathEffect = DashPathEffect(floatArrayOf(12f, 10f), 0f); c.drawRoundRect(r, 32f, 32f, p)
+                    c.drawText("?", r.centerX(), r.centerY() + 26f, q)
+                }
+                else -> {
+                    fill(Pal.alpha(who.color, .08f)); c.drawRoundRect(r, 32f, 32f, p)
+                    stroke(who.color, 3.5f, 10f); c.drawRoundRect(r, 32f, 32f, p)
+                    val z = if (who == Rider.KID) 76f else 92f
+                    p.clearShadowLayer()
+                    Fig.draw(c, who, r.centerX() - z / 2, r.centerY() - z / 2 + 4f, z, p)
+                }
             }
         }
     }
@@ -297,7 +322,7 @@ class SeatMapView(ctx: Context, private val riders: Map<Seat, Rider>, private va
     override fun onTouchEvent(e: MotionEvent): Boolean {
         if (e.action == MotionEvent.ACTION_UP) {
             val x = (e.x - ox) / k; val y = (e.y - oy) / k
-            rects.entries.firstOrNull { it.value.contains(x, y) }?.let { onTap(it.key); performClick() }
+            rects.entries.firstOrNull { it.key != Seat.D && it.value.contains(x, y) }?.let { onTap(it.key); performClick() }
         }
         return true
     }

@@ -44,7 +44,8 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
 
     // 상태
     private var mode = Mode.ASK
-    private val riders = Seat.values().associateWith { Rider.NONE }.toMutableMap()
+    // 운전석은 항상 운전자(어른). 나머지 좌석만 묻거나 눌러서 정합니다
+    private val riders = Seat.values().associateWith { if (it == Seat.D) Rider.ADULT else Rider.NONE }.toMutableMap()
     private var parked = true
     private var gearLabel = "P"
     private var remainSec = -1
@@ -145,7 +146,7 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
 
     /** 좌석을 누를 때마다 ? → 어른 → 아이 → 어르신 → 반려동물 */
     private fun tapSeat(seat: Seat) {
-        if (mode != Mode.ASK) return
+        if (mode != Mode.ASK || seat == Seat.D) return
         val order = Rider.values()
         riders[seat] = order[(riders.getValue(seat).ordinal + 1) % order.size]
         seatMap?.invalidate()
@@ -299,7 +300,7 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
         this.parked = parked; gearLabel = label
         if (parked && wasDriving) { rearOpenedSincePark = false; driveSeconds = 0; soloAlerted = false }
         // 좌석을 눌러 탑승자를 정해 둔 채 출발하면 그대로 시작
-        if (!parked && !wasDriving && mode == Mode.ASK && riders.values.any { it != Rider.NONE }) startTrip()
+        if (!parked && !wasDriving && mode == Mode.ASK && riders.any { (s, r) -> s != Seat.D && r != Rider.NONE }) startTrip()
         refresh()
     }.let { }
 
@@ -311,7 +312,7 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
         if (open && door == DoorValue.ROW_1_LEFT && parked && !rearOpenedSincePark && mode != Mode.ASK && (kids > 0 || pet)) {
             alertMsg = if (kids > 0) "뒷좌석에 아이 ${kids}명이\n아직 있어요" else "뒷좌석에 반려동물이\n아직 있어요"
             ambient(Pal.ALERT)
-            voice.say("잠깐만요! 뒷좌석에 ${if (kids > 0) "아이가" else "반려동물이"} 있어요!")
+            voice.say("잠깐만요! 뒷좌석에 ${if (kids > 0) "아이가" else "반려동물이"} 있어요!", urgent = true)
             render()
         }
     }.let { }
@@ -414,7 +415,7 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
         heardText = heard
         addView(heard, lp(-2, -2, top = 30))
         val m = SeatMapView(context, riders) { tapSeat(it) }; seatMap = m
-        addView(m, lp(1080, 468, top = 30))
+        addView(m, lp(1080, 620, top = 20))
     }
 
     /** 이해한 탑승자를 "아이 2명 · 어르신 1명 · 반려동물"처럼 정리해 표시. null이면 못 알아들음 */
