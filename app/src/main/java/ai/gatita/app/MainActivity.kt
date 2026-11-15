@@ -21,6 +21,10 @@ import android.view.View
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.ArrayAdapter
+import android.widget.CheckedTextView
+import android.content.res.ColorStateList
+import android.view.ViewGroup
 import ai.pleos.playground.vehicle.constant.area.DoorValue
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -204,8 +208,24 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
         val title = when (seat) {
             Seat.P -> "조수석"; Seat.RL -> "뒷좌석 왼쪽"; Seat.RM -> "뒷좌석 가운데"; else -> "뒷좌석 오른쪽"
         }
-        val dialog = AlertDialog.Builder(this).setTitle("$title 탑승자")
-            .setSingleChoiceItems(names, riders.getValue(seat).ordinal) { dialog, which ->
+        // Some Pleos themes inherit white text for this otherwise light native dialog.
+        // Set both foreground and background on every row, including recycled rows.
+        val adapter = object : ArrayAdapter<String>(this, android.R.layout.simple_list_item_single_choice, names) {
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                return (super.getView(position, convertView, parent) as CheckedTextView).apply {
+                    textSize = 28f
+                    layoutParams = android.widget.AbsListView.LayoutParams(-1, (76 * resources.displayMetrics.density).toInt())
+                    setTextColor(0xFF211C2E.toInt())
+                    setBackgroundColor(0xFFF7F6FA.toInt())
+                    checkMarkTintList = ColorStateList.valueOf(0xFF5844B8.toInt())
+                }
+            }
+        }
+        val dialog = AlertDialog.Builder(this, android.R.style.Theme_Material_Light_Dialog_Alert)
+            .setCustomTitle(text("$title 탑승자", 42, 0xFF211C2E.toInt(), 600).apply {
+                setPadding(24, 24, 24, 24)
+            })
+            .setSingleChoiceItems(adapter, riders.getValue(seat).ordinal) { dialog, which ->
                 riders[seat] = Rider.values()[which]
                 ridersConfirmed = true; riderReview = true
                 seatMap?.invalidate(); showHeard(riders)
@@ -219,12 +239,11 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
         dialog.listView.layoutParams = dialog.listView.layoutParams.apply {
             height = (76 * names.size * resources.displayMetrics.density).toInt()
         }
-        dialog.listView.setOnHierarchyChangeListener(object : android.view.ViewGroup.OnHierarchyChangeListener {
-            override fun onChildViewAdded(parent: View?, child: View?) {
-                (child as? TextView)?.apply { textSize = 28f; minHeight = (76 * resources.displayMetrics.density).toInt() }
-            }
-            override fun onChildViewRemoved(parent: View?, child: View?) {}
-        })
+        dialog.listView.setBackgroundColor(0xFFF7F6FA.toInt())
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).apply {
+            setTextColor(0xFF49369C.toInt()); textSize = 24f; minHeight = 72
+        }
+
     }
 
 
@@ -444,7 +463,7 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
     }
 
     private fun refresh() {
-        touchControls.forEach { control -> control.isEnabled = parked; control.alpha = if (parked) 1f else 0.4f }
+        touchControls.forEach { control -> control.isEnabled = parked; control.alpha = if (parked) 1f else 0.75f }
         touchHint?.text = if (parked) "좌석을 한 번 눌러 탑승자를 선택해 주세요" else "주행 중에는 음성으로 선택해 주세요"
         // 상단 줄
         val active = mode != Mode.ASK

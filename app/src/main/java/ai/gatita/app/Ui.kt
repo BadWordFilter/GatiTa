@@ -38,7 +38,7 @@ object Pal {
     val LINE = 0x21FFFFFF          // 흰색 13%
     val LINE2 = 0x52FFFFFF         // 흰색 32%
     val DIM = 0xFF9D97B0.toInt()
-    val MUTE = 0xFF5F5A73.toInt()
+    val MUTE = 0xFF9F98B1.toInt()
     val KID = 0xFF8EA2FF.toInt()
     val PET = 0xFFF29BC4.toInt()
     val SOLO = 0xFFB7A4F5.toInt()
