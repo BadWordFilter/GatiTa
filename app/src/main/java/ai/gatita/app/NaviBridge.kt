@@ -59,6 +59,13 @@ class NaviBridge(context: Context, private val events: Events) {
         }
     }
 
+    /** 지금 위치에서 가장 가까운 휴게소와 직선거리(km). 위치를 모르면 거리는 null */
+    fun nearestStop(): Pair<RestStops.Stop, Double?> {
+        val la = lat; val lo = lon
+        val stop = RestStops.nearest(la, lo)
+        return stop to if (la != null && lo != null) RestStops.km(la, lo, stop.lat, stop.lon) else null
+    }
+
     /**
      * 현재 위치에서 가장 가까운 휴게소를 경유지로 추가합니다.
      * 안내 중인 경로가 없으면 휴게소를 목적지로 경로 안내를 시작합니다.

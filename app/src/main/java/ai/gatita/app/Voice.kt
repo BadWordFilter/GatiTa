@@ -26,6 +26,8 @@ class Voice(private val context: Context, private val onLog: (String) -> Unit) {
     private var stt: SpeechToText? = null
     private var sttReady = false
     private var onHeard: ((String) -> Unit)? = null
+    /** 음성 인식 중 마이크 소리 크기 (화면 파형용) */
+    var onRms: ((Float) -> Unit)? = null
     @Volatile private var lastText: String? = null
 
     fun start() {
@@ -63,7 +65,7 @@ class Voice(private val context: Context, private val onLog: (String) -> Unit) {
                 override fun onEndedRecognition() {}
                 override fun onError(error: SttError) { onLog("STT 오류: $error") }
                 override fun onReady() {}
-                override fun onUpdatedRms(rms: Double) {}
+                override fun onUpdatedRms(rms: Double) { onRms?.invoke(rms.toFloat()) }
             })
             stt = s
         } catch (t: Throwable) { onLog("Pleos STT 오류: ${t.message}") }

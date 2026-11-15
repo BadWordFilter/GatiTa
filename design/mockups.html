@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<title>같이타 화면 시안</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+/* 방향: 차량 공조 화면처럼 가는 선 그림 + 필요한 곳만 빛나는 선. 정보는 큰 글씨 한 줄에 담고 작은 설명 글씨는 없음.
+   음성 입력 화면은 상단에 큰 파형(마이크 입력에 반응). */
+:root{--bg:#121019;--bg2:#1A1729;--line:rgba(255,255,255,.13);--line2:rgba(255,255,255,.32);--dim:#9D97B0;--mute:#5F5A73}
+*{box-sizing:border-box;margin:0}
+html,body{background:var(--bg);color:#fff;font-family:Pretendard,"Malgun Gothic",sans-serif;overflow:hidden}
+.screen{width:2560px;height:1440px;position:relative;overflow:hidden;background:linear-gradient(180deg,var(--bg2),var(--bg) 60%)}
+.amb{position:absolute;left:10%;right:10%;bottom:0;height:4px;border-radius:4px;background:linear-gradient(90deg,transparent,var(--c),transparent);box-shadow:0 0 44px 4px var(--c);opacity:.8}
+.ico{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.glow{color:var(--c);filter:drop-shadow(0 0 8px var(--c))}
+.bar{position:absolute;top:0;left:0;right:0;height:150px;display:flex;align-items:center;gap:40px;padding:0 90px 0 60px;border-bottom:2px solid var(--line)}
+.logo{display:flex;align-items:center;gap:18px;font-weight:700;font-size:42px;letter-spacing:-1px}
+.bar .sp{flex:1}
+.stat{display:flex;align-items:baseline;gap:14px;color:var(--dim);font-size:30px;font-weight:500}
+.stat b{font-size:58px;font-weight:200;color:#fff;letter-spacing:1px}
+.stat .dot{width:14px;height:14px;border-radius:50%;background:var(--c);box-shadow:0 0 12px var(--c);align-self:center}
+.gearset{display:flex;gap:6px;font-size:40px;font-weight:300;color:var(--mute)}
+.gearset span{width:58px;text-align:center}.gearset .on{color:#fff;font-weight:700;text-shadow:0 0 14px rgba(255,255,255,.6)}
+.vr{width:2px;height:60px;background:var(--line)}
+.rail{position:absolute;left:0;top:150px;bottom:0;width:190px;border-right:2px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:58px;padding-top:70px}
+.rail .ico{width:58px;height:58px;color:var(--mute)}
+.rail .on{color:var(--c);filter:drop-shadow(0 0 8px var(--c))}
+.main{position:absolute;left:190px;right:0;top:150px;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.h1{font-size:104px;font-weight:700;letter-spacing:-3px;line-height:1.16}
+.h1 em{font-style:normal;color:var(--c);text-shadow:0 0 30px color-mix(in srgb,var(--c) 50%,transparent)}
+.h1 .n{font-weight:200;letter-spacing:0}
+.out{border:2px solid var(--line);border-radius:44px;background:rgba(255,255,255,.015);animation:pop .5s cubic-bezier(.3,1.4,.5,1) both;animation-delay:var(--d,0s)}
+.out.on{border-color:var(--c);box-shadow:0 0 0 1px var(--c),0 0 50px -8px var(--c),inset 0 0 40px -20px var(--c)}
+@keyframes pop{from{transform:translateY(24px);opacity:0}}
+/* 큰 음성 파형: 화면 위쪽, 말소리 크기에 따라 막대가 움직임 */
+.bw{display:flex;align-items:center;justify-content:center;gap:12px;height:170px;margin:44px 0 10px}
+.bw b{width:12px;height:170px;border-radius:6px;background:var(--c);box-shadow:0 0 14px var(--c);display:block;transform-origin:center;transition:transform .06s linear}
+.cards{display:flex;gap:44px;margin-top:70px}
+.tap,.card,.btn{cursor:pointer}
+.card{width:560px;height:440px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;font-size:60px;font-weight:700}
+.lic .ico{width:200px;height:200px;stroke-width:.9}
+.chips{display:flex;gap:24px;margin-top:56px;flex-wrap:wrap;justify-content:center}
+.chip{display:flex;align-items:center;gap:16px;padding:22px 38px;border-radius:999px;font-size:40px;font-weight:600}
+.chip .ico{width:46px;height:46px}
+.say{display:flex;align-items:center;gap:20px;padding:16px 40px 16px 16px;border-radius:999px;font-size:42px;font-weight:500;margin-bottom:30px}
+.ringbox{position:relative;width:560px;height:560px;display:grid;place-items:center}
+.ringbox svg{position:absolute;inset:0}
+.ringbox .n{font-size:290px;font-weight:200;line-height:1}
+.btns{display:flex;gap:24px;margin-top:40px}
+.btn{white-space:nowrap;display:flex;align-items:center;gap:14px;padding:34px 60px;border-radius:999px;font-size:46px;font-weight:600;border:2px solid var(--line2)}
+.btn .ico{width:50px;height:50px}
+.btn.pri{border-color:var(--c);color:var(--c);box-shadow:0 0 40px -8px var(--c),inset 0 0 30px -14px var(--c)}
+.ov{width:2560px;height:1440px;padding:80px 110px;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:auto 1fr 1fr;gap:50px;background:var(--bg)}
+.ov h2{grid-column:1/-1;display:flex;align-items:center;gap:30px;font-size:76px;font-weight:800;letter-spacing:-2px}
+.ov h2 span{font-size:40px;color:var(--dim);font-weight:500;letter-spacing:0}
+.cell{display:flex;flex-direction:column;gap:22px}
+.thumb{width:100%;aspect-ratio:16/9;border-radius:32px;overflow:hidden;position:relative;outline:2px solid var(--line)}
+.thumb .screen{transform:scale(var(--s));transform-origin:0 0;position:absolute}
+.cell p{font-size:38px;font-weight:800}.cell p em{font-style:normal;color:var(--dim);font-weight:500;margin-left:14px;font-size:30px}
+.icon-only{width:1024px;height:1024px;display:grid;place-items:center;background:var(--bg)}
+</style></head><body>
+<div id="app"></div>
+<script>
+// 화면 선택: mockups.html?s=ask|kid|choice|pet|solo|alert|overview|icon
+const C={kid:'#8EA2FF',pet:'#F29BC4',solo:'#B7A4F5',elder:'#8FD9C0',choice:'#8FD9C0',rest:'#FFCF9E',alert:'#FF7468'};
+
+// ── 캐릭터: 조약돌 탑승자. 아이=새싹 머리+큰 눈, 어른=기본, 어르신=안경, 반려동물=처진 귀. 벨트는 로고에만 ──
+let gid=0;
+const BODY='M50 12C79 12 89 31 89 55C89 79 75 90 50 90S11 79 11 55C11 31 21 12 50 12Z';
+const pebbleG=(c,{eyes='dot',ears=false,belt=false,sprout=false,glasses=false}={})=>{const id='g'+(gid++);
+ const E={dot:'<circle cx="39" cy="50" r="4.5"/><circle cx="61" cy="50" r="4.5"/>',
+  big:'<circle cx="38" cy="52" r="7"/><circle cx="62" cy="52" r="7"/><circle cx="40" cy="49" r="2.4" fill="#fff"/><circle cx="64" cy="49" r="2.4" fill="#fff"/>',
+  wide:'<circle cx="39" cy="48" r="6.5"/><circle cx="61" cy="48" r="6.5"/>',
+  sleepy:'<path d="M34 51h10M56 51h10" stroke="#1A1626" stroke-width="4" stroke-linecap="round"/>',
+  happy:'<path d="M34 52q5-7 10 0M56 52q5-7 10 0" stroke="#1A1626" stroke-width="4" fill="none" stroke-linecap="round"/>'}[eyes];
+ return `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient>
+ <clipPath id="${id}c"><path d="${BODY}"/></clipPath></defs>
+ ${ears?`<ellipse cx="14" cy="42" rx="10" ry="22" transform="rotate(18 14 42)" fill="${c}" style="filter:brightness(.82)"/><ellipse cx="86" cy="42" rx="10" ry="22" transform="rotate(-18 86 42)" fill="${c}" style="filter:brightness(.82)"/>`:''}
+ ${sprout?`<path d="M50 14V4" stroke="#7FCB9E" stroke-width="3.5" stroke-linecap="round"/><path d="M50 6q-14-6-18 4q12 4 18-4z" fill="#8FD9B0"/><path d="M50 6q14-6 18 4q-12 4-18-4z" fill="#8FD9B0"/>`:''}
+ <path d="${BODY}" fill="${c}"/><path d="${BODY}" fill="url(#${id})"/>
+ ${belt?`<g clip-path="url(#${id}c)"><path d="M4 64L100 96" stroke="#5F5B70" stroke-width="12"/><path d="M4 58.5L100 90.5M4 69.5L100 101.5" stroke="#4A4659" stroke-width="1.5"/></g>
+ <rect x="55" y="78" width="15" height="11" rx="3" transform="rotate(18 62.5 83.5)" fill="#C9C5D6" stroke="#8C88A0" stroke-width="1.5"/>`:''}
+ <g fill="#1A1626">${E}</g>${glasses?'<g fill="none" stroke="#1A1626" stroke-width="2.6"><circle cx="39" cy="50" r="9.5"/><circle cx="61" cy="50" r="9.5"/><path d="M48.5 50h3"/></g>':''}
+ <ellipse cx="29" cy="61" rx="6" ry="3.5" fill="#FF6F91" opacity=".45"/><ellipse cx="71" cy="61" rx="6" ry="3.5" fill="#FF6F91" opacity=".45"/>`};
+const pebble=(c,size,o={})=>`<svg width="${size}" height="${size}" viewBox="0 0 100 100" style="overflow:visible">${pebbleG(c,o)}</svg>`;
+// 로고: 어른·아이 픽토그램이 나란히, 각자 안전벨트(회색 띠+버클)를 맴
+const beltFig=(c,head,torso,belt,buckle,id)=>`<defs><clipPath id="${id}"><path d="${torso}"/></clipPath></defs>${head}<path d="${torso}" fill="${c}"/>
+ <path d="${belt}" stroke="#5F5B70" stroke-width="9" clip-path="url(#${id})"/><rect x="${buckle[0]}" y="${buckle[1]}" width="11" height="8" rx="2" transform="rotate(42 ${buckle[0]+5.5} ${buckle[1]+4})" fill="#C9C5D6" stroke="#8C88A0" stroke-width="1.2"/>`;
+const logo=(s=64)=>{const u='l'+(gid++);return `<svg width="${s*1.3}" height="${s}" viewBox="0 0 130 100" style="overflow:visible">
+ ${beltFig(C.kid,`<circle cx="44" cy="22" r="15" fill="${C.kid}"/>`,'M16 98V66Q16 42 44 42Q72 42 72 66V98Z','M20 46L76 100',[50,72],u+'a')}
+ ${beltFig(C.rest,`<circle cx="98" cy="46" r="11" fill="${C.rest}"/>`,'M78 98V80Q78 62 98 62Q118 62 118 80V98Z','M80 64L122 102',[99,82],u+'b')}</svg>`};
+const P={kid:o=>[C.kid,{sprout:true,eyes:'big',...o}],adult:o=>[C.solo,{...o}],elder:o=>[C.elder,{glasses:true,...o}],pet:o=>[C.pet,{ears:true,...o}]};
+
+// ── 탑승자 픽토그램: 머리 + 몸통만. 아이=작고 머리 묶음, 어른=기본, 어르신=굽은 등+지팡이, 반려동물=강아지 옆모습 ──
+const FC={kid:C.kid,adult:C.solo,elder:C.elder,pet:C.pet};
+const figG=who=>{const c=FC[who];return ({
+ adult:`<circle cx="50" cy="24" r="15" fill="${c}"/><path d="M22 96V68Q22 44 50 44Q78 44 78 68V96Z" fill="${c}"/>`,
+ kid:`<circle cx="50" cy="42" r="12" fill="${c}"/><path d="M31 96V77Q31 58 50 58Q69 58 69 77V96Z" fill="${c}"/>`,
+ elder:`<circle cx="44" cy="27" r="13" fill="${c}"/><path d="M18 96V72Q18 46 44 46Q66 48 70 72V96Z" fill="${c}"/><path d="M78 96V60Q78 52 85 52" fill="none" stroke="${c}" stroke-width="5" stroke-linecap="round"/>`,
+ pet:`<path d="M20 22Q22 12 34 12Q46 12 48 24L50 40Q62 44 70 58Q80 70 78 86Q86 86 90 76Q93 70 96 72Q96 84 86 92H28Q24 92 24 88L26 56Q22 46 26 38L14 36Q6 34 8 28Q10 24 20 22Z" fill="${c}"/><path d="M36 18Q46 18 46 30Q46 42 40 44Q35 40 35 30Z" fill="#000" fill-opacity=".22"/>`,
+})[who]};
+const fig=(who,size)=>`<svg width="${size}" height="${size}" viewBox="0 0 100 100" style="overflow:visible;filter:drop-shadow(0 0 10px ${FC[who]})">${figG(who)}</svg>`;
+
+// 선 그림 좌석(옆모습) 위 픽토그램
+const seat=(who,size)=>`<svg width="${size}" height="${size}" viewBox="0 0 220 220" style="overflow:visible">
+ <g fill="none" stroke="rgba(255,255,255,.45)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M40 22Q58 12 66 28L62 50Q46 56 38 42Z"/><path d="M44 62Q66 56 70 74L64 148L170 150Q190 152 190 168L188 180L60 180Q38 180 38 160Z"/><path d="M80 180L74 206M168 180L174 206"/></g>
+ <svg x="70" y="40" width="110" height="110" viewBox="0 0 100 100" style="overflow:visible;filter:drop-shadow(0 0 8px ${FC[who]})">${figG(who)}</svg></svg>`;
+
+// 위에서 본 차(가로, 오른쪽이 앞) + 좌석별 탑승자. 빈자리는 선만, 탄 자리는 그 사람 색으로 빛남
+const carMap=riders=>{ // riders: {d,p,rl,rm,rr}: 'kid'|'adult'|'elder'|'pet'
+const S={d:[760,92,190,150],p:[760,278,190,150],rl:[430,80,190,110],rm:[430,205,190,110],rr:[430,330,190,110]};
+ return `<svg width="1080" height="468" viewBox="0 0 1200 520" style="overflow:visible">
+ <g fill="none" stroke="rgba(255,255,255,.4)" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round">
+  <rect x="40" y="30" width="1120" height="460" rx="210"/><path d="M1010 90Q1070 260 1010 430"/><path d="M220 100Q180 260 220 420"/></g>
+ ${Object.entries(S).map(([k,[x,y,w,h]])=>`<g class="tap" data-seat="${k}">${(()=>{const who=riders[k];if(!who)return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="36" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="2.4" stroke-dasharray="10 10"/>`;
+  if(who==='?')return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="36" fill="rgba(142,162,255,.05)" stroke="${C.kid}" stroke-width="3" stroke-dasharray="12 10" style="filter:drop-shadow(0 0 8px ${C.kid})"/><text x="${x+w/2}" y="${y+h/2+30}" text-anchor="middle" font-size="84" font-weight="200" fill="${C.kid}">?</text>`;
+  const [c,opt]=P[who]({});const z=who==='kid'?84:104;
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="36" fill="${c}" fill-opacity=".08" stroke="${c}" stroke-width="3.5" style="filter:drop-shadow(0 0 10px ${c})"/>
+  <svg x="${x+w/2-z/2}" y="${y+h/2-z/2+4}" width="${z}" height="${z}" viewBox="0 0 100 100" style="overflow:visible">${figG(who)}</svg>`})()}</g>`).join('')}</svg>`};
+
+const ICON={
+ home:'<path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/>',
+ users:'<circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M16.5 14c2.7.3 4.5 2.6 4.5 5"/>',
+ book:'<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/>',
+ window:'<path d="M4 20V9q0-5 6-5h8a2 2 0 0 1 2 2v14z"/><path d="M4 12h16" stroke-dasharray="2 3"/>',
+ cup:'<path d="M5 9h11v5a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5z"/><path d="M16 10h1.5a2.5 2.5 0 0 1 0 5H16M8 3v2M12 3v2"/>',
+ light:'<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/>',
+ cave:'<path d="M3 20l5.5-11 3 4 3-6L21 20z"/><path d="M10 20v-2a2 2 0 0 1 4 0v2"/>',
+ forest:'<path d="M8 3l-4 7h8z"/><path d="M8 10v10M16 7l-5 9h10z"/><path d="M16 16v4"/>',
+ plus:'<path d="M12 5v14M5 12h14"/>',
+ door:'<path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16M3 21h18M14 12h.01"/>',
+ eye:'<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+};
+const ic=(k,cls='',st='')=>`<svg class="ico ${cls}" viewBox="0 0 24 24" style="${st}">${ICON[k]}</svg>`;
+
+const bar=({gear='P',mode,c,eta})=>`<div class="bar"><div class="logo">${logo(54)}같이타</div><div class="sp"></div>
+ ${mode?`<div class="stat" style="--c:${c}"><i class="dot"></i>${mode}</div><div class="vr"></div>`:''}
+ ${eta?`<div class="stat">도착까지 <b>${eta}</b></div><div class="vr"></div>`:''}
+ <div class="gearset">${['P','R','N','D'].map(g=>`<span class="${g===gear?'on':''}">${g}</span>`).join('')}</div><div class="vr"></div>
+ <div class="stat"><b>10:30</b></div></div>`;
+const RAIL=['home','users','book','window','cup','light'];
+const rail=on=>`<div class="rail">${RAIL.map(k=>ic(k,k===on?'on':'')).join('')}</div>`;
+const frame=(c,on,top,body)=>`<div class="amb" style="--c:${c}"></div>${top}<div style="--c:${c}">${rail(on)}</div><div class="main" style="--c:${c}">${body}</div>`;
+// 큰 파형: 처음 모양은 정지 화면용, 브라우저에서 열면 마이크 소리에 맞춰 움직임
+const bigwave=(n=56)=>`<div class="bw">${Array.from({length:n},(_,i)=>{const e=Math.sin(Math.PI*i/(n-1));return `<b style="transform:scaleY(${(.1+.85*e*Math.abs(Math.sin(i*.9))).toFixed(2)})"></b>`}).join('')}</div>`;
+const chip=(icn,t,c,d)=>`<div class="out on chip" style="--c:${c};--d:${d}s;color:${c}">${ic(icn)}<span style="color:#fff">${t}</span></div>`;
+const ring=(n,total,c)=>{const R=260,cx=280,gap=8,seg=360/total;const pt=a=>[cx+R*Math.sin(a*Math.PI/180),cx-R*Math.cos(a*Math.PI/180)];
+ const arcs=Array.from({length:total},(_,i)=>{const a0=i*seg+gap/2,a1=(i+1)*seg-gap/2,[x0,y0]=pt(a0),[x1,y1]=pt(a1),lit=i>=total-n;
+  return `<path d="M${x0} ${y0}A${R} ${R} 0 0 1 ${x1} ${y1}" stroke="${lit?c:'rgba(255,255,255,.12)'}" stroke-width="${lit?10:6}" fill="none" stroke-linecap="round" ${lit?`style="filter:drop-shadow(0 0 10px ${c})"`:''}/>`}).join('');
+ return `<div class="ringbox"><svg viewBox="0 0 560 560">${arcs}</svg><div class="n">${n}</div></div>`};
+
+// 이번 이야기 진행: 원 테두리가 지나간 만큼 = 들은 만큼, 끝에 빛나는 점
+const prog=(p,c,inner)=>{const R=300,cx=320,a=p*2*Math.PI,x=cx+R*Math.sin(a),y=cx-R*Math.cos(a);
+ return `<div class="ringbox" style="width:640px;height:640px"><svg viewBox="0 0 640 640"><circle cx="${cx}" cy="${cx}" r="${R}" stroke="rgba(255,255,255,.12)" stroke-width="8" fill="none"/>
+ <path d="M${cx} ${cx-R}A${R} ${R} 0 ${p>.5?1:0} 1 ${x} ${y}" stroke="${c}" stroke-width="12" fill="none" stroke-linecap="round" style="filter:drop-shadow(0 0 12px ${c})"/>
+ <circle cx="${x}" cy="${y}" r="18" fill="#fff" style="filter:drop-shadow(0 0 14px ${c})"/></svg>${inner}</div>`};
+const riders={d:'?',p:'?',rl:'?',rm:'?',rr:'?'};
+// 내비 지도: 조용한 선 지도 위에 경로와 휴게소 핀만 빛남
+const navMap=()=>`<div class="out on" style="--c:${C.rest};flex:1;height:1060px;position:relative;overflow:hidden;border-radius:56px;background:#15131F">
+ <svg width="100%" height="100%" viewBox="0 0 1400 1060" preserveAspectRatio="xMidYMid slice" style="position:absolute;inset:0">
+  <g stroke="rgba(255,255,255,.07)" stroke-width="10" fill="none" stroke-linecap="round">
+   <path d="M-20 180H1420M-20 420H1420M-20 700H1420M-20 930H1420M200 -20V1080M520 -20V1080M980 -20V1080M1240 -20V1080"/></g>
+  <g stroke="rgba(255,255,255,.04)" stroke-width="4" fill="none"><path d="M-20 300H1420M-20 560H1420M-20 820H1420M360 -20V1080M760 -20V1080M1110 -20V1080"/></g>
+  <path d="M700 1100C700 900 640 820 700 700S900 520 860 380S760 160 820 -20" stroke="rgba(255,255,255,.16)" stroke-width="34" fill="none" stroke-linecap="round"/>
+  <path d="M700 1100C700 900 640 820 700 700S900 520 860 380S760 160 820 -20" stroke="${C.solo}" stroke-width="14" fill="none" stroke-linecap="round" style="filter:drop-shadow(0 0 10px ${C.solo})"/>
+  <path d="M868 470Q960 450 1010 410" stroke="${C.rest}" stroke-width="10" fill="none" stroke-linecap="round" stroke-dasharray="4 18" style="filter:drop-shadow(0 0 8px ${C.rest})"/>
+  <g transform="translate(700 880)"><circle r="56" fill="${C.solo}" fill-opacity=".18"/><path d="M0-34L26 28L0 14L-26 28Z" fill="#fff" style="filter:drop-shadow(0 0 10px ${C.solo})"/></g>
+  <g transform="translate(1030 400)" style="filter:drop-shadow(0 0 16px ${C.rest})"><path d="M0 0C-12-40-58-62-58-108A58 58 0 0 1 58-108C58-62 12-40 0 0Z" fill="${C.rest}"/><circle cy="-108" r="24" fill="#15131F"/></g>
+ </svg>
+ <div class="out on" style="--c:${C.rest};position:absolute;left:56px;top:56px;padding:40px 48px;text-align:left;background:rgba(21,19,31,.92)">
+  <div style="display:flex;align-items:center;gap:22px">${ic('cup','glow','width:72px;height:72px;--c:'+C.rest)}<span style="font-size:58px;font-weight:700">안성휴게소</span></div>
+  <div style="font-size:40px;color:var(--dim);margin-top:14px"><b style="font-weight:200;color:#fff;font-size:72px">7</b> km · <b style="font-weight:200;color:#fff;font-size:72px">4</b> 분 뒤 · 오른쪽</div>
+  <div class="btns" style="--c:${C.rest};margin-top:34px"><div class="btn pri">${ic('plus')}경유지 추가</div><div class="btn">괜찮아요</div></div></div></div>`;
+const S={
+ // 선택지 3개 대신: 말한 대로 좌석이 채워지고, 탄 사람에 맞는 기능이 켜짐
+ ask:()=>frame(C.kid,'users',bar({}),`
+  <div class="h1">오늘 누구와 함께하시나요?</div>${bigwave()}
+  <div id="cm" style="margin-top:50px">${carMap(riders)}</div>`),
+ kid:()=>frame(C.kid,'book',bar({gear:'D',mode:'아이 2 · 반려동물',c:C.kid,eta:'12:40'}),`
+  <div class="out on say" style="--d:.2s">${fig('kid',70)}옛날 옛적, 별빛 기차를 탄 토끼가 있었대…</div>
+  ${prog(.62,C.kid,`<div class="h1" style="font-size:92px;position:relative">토끼와<br>별빛 기차</div>`)}<div style="font-size:52px;font-weight:200;color:var(--dim);margin-top:24px;letter-spacing:2px">03:42</div>`),
+ choice:()=>frame(C.choice,'book',bar({gear:'D',mode:'아이 2',c:C.kid,eta:'08:10'}),`
+  <div class="h1">동굴로 갈까, 숲으로 갈까?</div>${bigwave()}
+  <div class="cards">${[['cave','동굴'],['forest','숲']].map(([k,l],i)=>`<div class="out card on" style="--d:${.1*i+.1}s"><div class="lic glow">${ic(k)}</div><div>${l}</div></div>`).join('')}</div>`),
+ pet:()=>frame(C.pet,'window',bar({gear:'D',mode:'반려동물',c:C.pet,eta:'21:00'}),`
+  <svg width="1000" height="460" viewBox="0 0 1000 460" style="overflow:visible">
+   <path d="M120 420V170Q120 50 260 50H860Q880 50 880 70V420Z" fill="rgba(255,255,255,.015)"/>
+   
+   <path clip-path="url(#winclip)" d="M122 92H878V418H122Z" fill="#1E1A2E"/><defs><clipPath id="winclip"><path d="M120 420V170Q120 50 260 50H860Q880 50 880 70V420Z"/></clipPath></defs>
+   <g clip-path="url(#winclip)"><svg x="350" y="196" width="300" height="300" viewBox="0 0 100 100" style="overflow:visible"><path d="M20 22Q22 12 34 12Q46 12 48 24L50 40Q62 44 70 58Q80 70 78 86Q86 86 90 76Q93 70 96 72Q96 84 86 92H28Q24 92 24 88L26 56Q22 46 26 38L14 36Q6 34 8 28Q10 24 20 22Z" fill="${C.pet}" fill-opacity=".38" stroke="${C.pet}" stroke-width="1.1" stroke-dasharray="3 2.2" stroke-linejoin="round"/><path d="M36 18Q46 18 46 30Q46 42 40 44Q35 40 35 30Z" fill="${C.pet}" fill-opacity=".25" stroke="${C.pet}" stroke-width=".8" stroke-dasharray="2 2"/></svg></g>
+   <path clip-path="url(#winclip)" d="M122 92H878V418H122Z" fill="rgba(180,170,230,.05)"/><path clip-path="url(#winclip)" d="M122 92H878" stroke="${C.pet}" stroke-width="4" stroke-dasharray="14 12" style="filter:drop-shadow(0 0 8px ${C.pet})"/>
+   <path d="M120 420V170Q120 50 260 50H860Q880 50 880 70V420Z" fill="none" stroke="rgba(255,255,255,.45)" stroke-width="3"/></svg>
+  <div class="h1" style="margin-top:60px">뒷창은 <em>환기만</em> 되게 열려요</div>`),
+ solo:()=>frame(C.solo,'cup',bar({gear:'D',mode:'혼자',c:C.solo,eta:'1:12'}),`
+  <div style="display:flex;align-items:center;gap:90px;width:100%;padding:0 80px 0 120px">
+   <div style="text-align:left;flex:none">${seat('adult',340)}
+    <div class="h1" style="margin-top:20px"><span style="font-size:170px;font-weight:800;letter-spacing:2px;color:#FFE3C2;text-shadow:0 0 6px ${C.rest},0 0 22px ${C.rest},0 0 48px rgba(255,207,158,.45)">01:52</span><br>운전 중</div></div>
+   ${navMap()}</div>`),
+ alert:()=>frame(C.alert,'home',bar({gear:'P',mode:'아이 2',c:C.kid}),`
+  <div style="display:flex;align-items:center;gap:150px">
+   <svg width="420" height="730" viewBox="0 0 300 520" style="overflow:visible">
+    <g fill="none" stroke="rgba(255,255,255,.45)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round">
+     <rect x="30" y="20" width="240" height="480" rx="110"/><path d="M60 140Q150 110 240 140"/><path d="M60 440Q150 465 240 440"/>
+     <rect x="64" y="170" width="74" height="96" rx="22"/><rect x="162" y="170" width="74" height="96" rx="22"/></g>
+    <path d="M30 186L-30 244" stroke="${C.alert}" stroke-width="4" stroke-linecap="round" style="filter:drop-shadow(0 0 8px ${C.alert})"/>
+    <rect x="64" y="310" width="172" height="110" rx="26" fill="rgba(255,116,104,.08)" stroke="${C.alert}" stroke-width="4" style="filter:drop-shadow(0 0 14px ${C.alert})"/>
+    <svg x="74" y="322" width="76" height="76" viewBox="0 0 100 100" style="overflow:visible">${figG('kid')}</svg>
+    <svg x="152" y="322" width="76" height="76" viewBox="0 0 100 100" style="overflow:visible">${figG('kid')}</svg></svg>
+   <div style="text-align:left"><div class="h1" style="font-size:150px;color:${C.alert};text-shadow:0 0 40px rgba(255,116,104,.5)">잠깐만요!</div>
+    <div class="h1" style="font-size:96px;margin-top:10px">뒷좌석에 아이 <span class="n">2</span>명이<br>아직 있어요</div></div></div>`),
+ icon:()=>`<div class="icon-only"><div style="width:820px;height:820px;border-radius:200px;background:linear-gradient(180deg,#2A2448,#13111B);display:grid;place-items:center">${logo(400)}</div></div>`,
+};
+const T=[['ask','탑승자 묻기','말한 대로 좌석이 채워짐'],['kid','아이 · 주행 중','이번 이야기 진행 정도'],['choice','아이 · 갈림길','아이가 직접 선택할 수 있는 이야기'],['pet','반려동물','환기만 되게 창문 제한'],['solo','혼자','졸음 코치·휴게소'],['alert','하차 리마인더','뒷좌석 두고 내림 방지']];
+S.overview=()=>`<div class="ov"><h2>${logo(96)}같이타 <span>“오늘 누구랑 가요?” 한 마디로, 차가 탑승자에 맞춰 바뀌어요</span></h2>
+ ${T.map(([k,t,d])=>`<div class="cell"><div class="thumb"><div class="screen">${S[k]()}</div></div><p>${t}<em>${d}</em></p></div>`).join('')}</div>`;
+const s=new URLSearchParams(location.search).get('s')||'overview';
+document.getElementById('app').innerHTML=s==='icon'||s==='overview'?S[s]():`<div class="screen">${S[s]()}</div>`;
+document.querySelectorAll('.thumb').forEach(t=>t.style.setProperty('--s',t.clientWidth/2560));
+
+// 파형 움직이기: 마이크를 허락하면 실제 말소리 크기, 아니면 말하는 듯한 가짜 움직임
+const bars=[...document.querySelectorAll('.bw b')];
+// 클릭으로도 고르기 (말 못하는 아이·시끄러운 차 안 대비): 좌석은 누를 때마다 ?→어른→아이→어르신→반려동물, 카드·버튼은 누른 것만 빛남
+const ORDER=['?','adult','kid','elder','pet'];
+document.addEventListener('click',e=>{
+ const seatEl=e.target.closest('[data-seat]');
+ if(seatEl){const k=seatEl.dataset.seat;riders[k]=ORDER[(ORDER.indexOf(riders[k])+1)%ORDER.length];document.getElementById('cm').innerHTML=carMap(riders);return}
+ const pick=e.target.closest('.card,.btn');
+ if(pick){pick.parentElement.querySelectorAll('.card,.btn').forEach(x=>x.classList.remove('on','pri'));pick.classList.add(pick.classList.contains('btn')?'pri':'on')}
+});
+// still=1: 캡처용 정지 화면(애니메이션 끔)
+const still=new URLSearchParams(location.search).has('still');
+if(still)document.querySelectorAll('.out').forEach(e=>e.style.animation='none');
+if(bars.length&&s!=='overview'&&!still){
+ let freq=null,an=null;
+ try{navigator.mediaDevices.getUserMedia({audio:true}).then(st=>{const ac=new AudioContext();an=ac.createAnalyser();an.fftSize=256;ac.createMediaStreamSource(st).connect(an);freq=new Uint8Array(an.frequencyBinCount)}).catch(()=>{})}catch(e){}
+ const n=bars.length;
+ (function tick(t){
+  if(an)an.getByteFrequencyData(freq);
+  bars.forEach((b,i)=>{const e=Math.sin(Math.PI*i/(n-1));
+   const v=an?freq[Math.floor(Math.abs(i-n/2)/(n/2)*60)]/255:(.5+.5*Math.sin(t/180+i*.7))*(.4+.6*Math.abs(Math.sin(t/900)));
+   b.style.transform=`scaleY(${Math.max(.06,v*e).toFixed(3)})`});
+  requestAnimationFrame(tick)})(0);
+}
+</script></body></html>

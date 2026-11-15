@@ -29,6 +29,8 @@ class Story {
     private var index = 0
     var planned = 0; private set
     private var slotSec = 600
+    /** 이야기 한 편에 배정된 시간(초). 화면의 이번 이야기 진행 링에 씁니다 */
+    val slot get() = slotSec
 
     /** 첫 남은 시간으로 이야기 개수를 정합니다 (3~12개) */
     fun plan(remainSec: Int) {

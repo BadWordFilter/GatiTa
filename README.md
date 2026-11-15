@@ -35,7 +35,7 @@
 | 빌드 | Gradle 8.9, AGP 8.5.2, Kotlin 1.9.25, JDK 17 |
 | Pleos SDK | Vehicle 2.3.2, NaviHelper 3.0.5, TextToSpeech 3.3.1, SpeechToText 3.3.1 |
 
-- 마이크 권한(`RECORD_AUDIO`)을 허용하면 음성으로 모드와 이야기 갈림길을 고를 수 있습니다. 음성 인식이 안 되는 환경에서는 화면 버튼으로 고를 수 있습니다.
+- 마이크 권한(`RECORD_AUDIO`)을 허용하면 음성으로 탑승자("할머니랑 애들 둘, 강아지도 같이 가")와 이야기 갈림길을 고를 수 있습니다. 음성 인식이 안 되는 환경에서는 좌석·카드를 눌러 고를 수 있습니다(좌석은 누를 때마다 ? → 어른 → 아이 → 어르신 → 반려동물, 정해 둔 채 기어를 D로 바꾸면 시작).
 - 내비게이션 경로가 없으면 5초 뒤 **시연용 13분 20초 경로를 시뮬레이션**합니다(남은 시간 표시에 "시뮬레이션" 표기). 실제 경로가 설정되면 NaviHelper의 남은 시간을 사용합니다.
 - Pleos TTS 초기화에 실패하면 Android 기본 TTS로 대체합니다.
 
@@ -55,7 +55,8 @@ release 서명 키(`release.jks`)는 저장소에 포함하지 않습니다. 키
 
 ```
 app/src/main/java/ai/gatita/app/
-├─ MainActivity.kt   모드 선택, 주행/정차 화면 전환, 하차 리마인더, 깨어있기 코치
+├─ MainActivity.kt   탑승자 묻기, 화면 전환, 하차 리마인더, 깨어있기 코치
+├─ Ui.kt             화면 부품(좌석 지도, 음성 파형, 이야기 진행 링, 창문, 내비 지도, 로고) · 디자인 원본 design/mockups.html
 ├─ VehicleBridge.kt  Vehicle SDK: 기어·도어·창문·엠비언트 조명
 ├─ NaviBridge.kt     NaviHelper SDK: 남은 시간·현재 위치·도착
 ├─ Voice.kt          TextToSpeech / SpeechToText SDK (On-Device, 기본 TTS 대체)

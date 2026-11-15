@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 같이타 로고: 어른·아이 픽토그램이 각자 안전벨트를 맨 모양 (design/mockups.html 로고와 같음) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="160"
+    android:viewportHeight="160">
+    <path
+        android:fillColor="#1F1B30"
+        android:pathData="M40,0 H120 A40,40 0 0 1 160,40 V120 A40,40 0 0 1 120,160 H40 A40,40 0 0 1 0,120 V40 A40,40 0 0 1 40,0 Z" />
+    <group android:translateX="15" android:translateY="28">
+        <!-- 어른 -->
+        <path android:fillColor="#8EA2FF" android:pathData="M59,22 A15,15 0 1 1 29,22 A15,15 0 1 1 59,22 Z" />
+        <path android:fillColor="#8EA2FF" android:pathData="M16,98 V66 Q16,42 44,42 Q72,42 72,66 V98 Z" />
+        <group>
+            <clip-path android:pathData="M16,98 V66 Q16,42 44,42 Q72,42 72,66 V98 Z" />
+            <path android:strokeColor="#5F5B70" android:strokeWidth="9" android:pathData="M20,46 L76,100" />
+        </group>
+        <group android:rotation="42" android:pivotX="55.5" android:pivotY="76">
+            <path android:fillColor="#C9C5D6" android:strokeColor="#8C88A0" android:strokeWidth="1.2"
+                android:pathData="M50,72 H61 V80 H50 Z" />
+        </group>
+        <!-- 아이 -->
+        <path android:fillColor="#FFCF9E" android:pathData="M109,46 A11,11 0 1 1 87,46 A11,11 0 1 1 109,46 Z" />
+        <path android:fillColor="#FFCF9E" android:pathData="M78,98 V80 Q78,62 98,62 Q118,62 118,80 V98 Z" />
+        <group>
+            <clip-path android:pathData="M78,98 V80 Q78,62 98,62 Q118,62 118,80 V98 Z" />
+            <path android:strokeColor="#5F5B70" android:strokeWidth="9" android:pathData="M80,64 L122,102" />
+        </group>
+        <group android:rotation="42" android:pivotX="104.5" android:pivotY="86">
+            <path android:fillColor="#C9C5D6" android:strokeColor="#8C88A0" android:strokeWidth="1.2"
+                android:pathData="M99,82 H110 V90 H99 Z" />
+        </group>
+    </group>
+</vector>
