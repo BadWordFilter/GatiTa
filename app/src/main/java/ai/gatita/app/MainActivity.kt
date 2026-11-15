@@ -197,7 +197,24 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
         ambient(0xFFFFFF)
         voice.say("연속으로 오래 운전하셨어요. 가까운 휴게소에서 15분 쉬어 갈까요?")
         show("잠깐 쉬어 갈까요?", "연속 주행 ${driveSeconds / 60}분 ${driveSeconds % 60}초")
-        setButtons("휴게소 안내" to { voice.say("가까운 휴게소를 경유지로 추가할게요."); setButtons() }, "괜찮아요" to { setButtons() })
+        var answered = false
+        val accept = {
+            if (!answered) {
+                answered = true; setButtons()
+                val stop = navi.addRestStop()
+                setSig("eta", "경유지: ${stop.name}")
+                voice.say("${stop.name.substringBefore("(")}를 경유지로 추가했어요. 조금만 더 힘내요!")
+                show("☕ ${stop.name}", "경유지로 추가했어요 · NaviHelper")
+            }
+        }
+        val decline = { if (!answered) { answered = true; setButtons(); voice.say("알겠어요. 졸리면 언제든 말해 주세요.") } }
+        setButtons("☕ 휴게소 경유지 추가" to accept, "괜찮아요" to decline)
+        ui.postDelayed({
+            voice.listen { h -> ui.post {
+                if (listOf("응", "좋아", "그래", "네", "추가").any { h.contains(it) }) accept()
+                else if (listOf("아니", "괜찮").any { h.contains(it) }) decline()
+            } }
+        }, 4500)
     }
 
     // ───────── 차량 이벤트 ─────────

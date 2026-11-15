@@ -5,6 +5,7 @@ import java.util.Locale
 import ai.pleos.playground.stt.SpeechToText
 import ai.pleos.playground.stt.listener.ResultListener
 import ai.pleos.playground.tts.TextToSpeech
+import ai.pleos.playground.tts.listener.EventListener
 import ai.pleos.playground.tts.listener.OnInitializeListener
 import android.speech.tts.TextToSpeech as AndroidTts
 import ai.pleos.playground.stt.constant.ErrorType as SttError
@@ -25,13 +26,26 @@ class Voice(private val context: Context, private val onLog: (String) -> Unit) {
     private var stt: SpeechToText? = null
     private var sttReady = false
     private var onHeard: ((String) -> Unit)? = null
+    @Volatile private var lastText: String? = null
 
     fun start() {
         try {
             val tts = TextToSpeech(context, TtsMode.ON_DEVICE)
             tts.initialize(object : OnInitializeListener {
-                override fun onSuccess() { tts.setLocale(Locale.KOREAN); pleosTtsReady = true; onLog("Pleos TTS 준비") }
+                override fun onSuccess() { tts.setLocale(Locale.KOREA); pleosTtsReady = true; onLog("Pleos TTS 준비") }
                 override fun onFailure(error: TtsError) { onLog("Pleos TTS 실패($error) → 기본 TTS 사용"); startFallback() }
+            })
+            // 합성 중 오류가 나면 같은 문장을 Android 기본 TTS로 다시 읽습니다
+            tts.addEventListener(object : EventListener {
+                override fun onStart() {}
+                override fun onReady() {}
+                override fun onDone() {}
+                override fun onStop() {}
+                override fun onUpdatedRms(rms: Double) {}
+                override fun onError(error: TtsError) {
+                    onLog("Pleos TTS 재생 오류($error) → 기본 TTS")
+                    lastText?.let { fallbackSay(it) }
+                }
             })
             pleosTts = tts
         } catch (t: Throwable) { onLog("Pleos TTS 오류: ${t.message}"); startFallback() }
@@ -39,7 +53,7 @@ class Voice(private val context: Context, private val onLog: (String) -> Unit) {
         try {
             val s = SpeechToText(context, SttMode.ON_DEVICE)
             s.initialize(object : SttInit {
-                override fun onSuccess() { s.setLocale(Locale.KOREAN); sttReady = true; onLog("Pleos STT 준비") }
+                override fun onSuccess() { s.setLocale(Locale.KOREA); sttReady = true; onLog("Pleos STT 준비") }
                 override fun onFailure(error: SttError) { onLog("Pleos STT 실패($error) → 화면 버튼 사용") }
             })
             s.addListener(object : ResultListener {
@@ -58,12 +72,13 @@ class Voice(private val context: Context, private val onLog: (String) -> Unit) {
     private fun startFallback() {
         if (fallbackTts != null) return
         fallbackTts = AndroidTts(context) { status ->
-            if (status == AndroidTts.SUCCESS) fallbackTts?.language = Locale.KOREAN
+            if (status == AndroidTts.SUCCESS) fallbackTts?.language = Locale.KOREA
         }
     }
 
     fun say(text: String) {
         onLog("🔊 $text")
+        lastText = text
         val p = pleosTts
         if (p != null && pleosTtsReady) {
             runCatching { p.speak(text, true) }.onFailure { startFallback(); fallbackSay(text) }
