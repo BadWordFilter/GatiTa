@@ -18,6 +18,7 @@ class RiderParseTest {
             "혼자", "혼자 가요", "애들이랑", "아이 둘이랑 가요", "할머니랑 애들 둘, 강아지도 같이 가",
             "엄마랑 딸", "강아지랑", "고양이 데리고 가요", "남편이랑 갑니다", "와이프랑 애들 셋",
             "할아버지 할머니 모시고", "아들 하나 딸 하나", "애 둘", "우리 가족 다 같이", "친구 둘이랑",
+            "조수석에 아이 태웠어", "강아지는 앞자리에", "엄마랑 아이, 아이는 조수석", "할머니는 옆자리, 애들 둘은 뒤에",
         )
         val out = samples.joinToString("\n") { "$it  →  ${seats(it)}" }
         File("build/rider-parse-report.txt").writeText(out)
@@ -38,6 +39,19 @@ class RiderParseTest {
         assertEquals(3, count("친구 둘이랑", Rider.ADULT))   // 운전자 + 친구 2명
         assertEquals(2, count("할머니랑 애들 둘, 강아지도 같이 가", Rider.KID))
         assertEquals(3, count("와이프랑 애들 셋", Rider.KID))
+    }
+
+    private fun at(t: String, s: Seat) = MainActivity.parseRiders(t)!![s]
+
+    @Test fun passengerSeat() {
+        assertEquals(Rider.KID, at("조수석에 아이 태웠어", Seat.P))
+        assertEquals(Rider.PET, at("강아지는 앞자리에", Seat.P))
+        assertEquals(Rider.KID, at("엄마랑 아이, 아이는 조수석", Seat.P))
+        assertEquals(Rider.ADULT, at("엄마랑 아이, 아이는 조수석", Seat.RL))   // 엄마는 뒷좌석으로
+        assertEquals(Rider.ELDER, at("할머니는 옆자리, 애들 둘은 뒤에", Seat.P))
+        assertEquals(2, count("할머니는 옆자리, 애들 둘은 뒤에", Rider.KID))
+        // 조수석을 말하지 않으면 예전 규칙 그대로
+        assertEquals(Rider.ELDER, at("할머니랑 애들 둘", Seat.P))
     }
 
     @Test fun restStopDirection() {

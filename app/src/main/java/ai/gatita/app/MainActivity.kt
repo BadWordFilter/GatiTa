@@ -319,8 +319,15 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
 
     override fun onRearWindow(position: Int) {}
 
+    private var lastClampSay = 0L
+
     override fun onRearWindowClamped() = ui.post {
-        voice.say("창문이 너무 많이 열렸어요. 환기만 되게 다시 맞출게요.")
+        // 창은 열린 것마다 되돌리지만, 안내는 한 번만 (두 창을 함께 열거나 슬라이더로 여러 번 바뀌어도)
+        val now = System.currentTimeMillis()
+        if (now - lastClampSay > CLAMP_SAY_GAP_MS) {
+            lastClampSay = now
+            voice.say("창문이 너무 많이 열렸어요. 환기만 되게 다시 맞출게요.")
+        }
     }.let { }
 
     override fun onRemainSeconds(sec: Int, destination: String) = ui.post {
@@ -657,6 +664,7 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
 
     companion object {
         private const val TAG = "GatiTa"
+        private const val CLAMP_SAY_GAP_MS = 8000L
         private const val HEARD_HINT = "예) “할머니랑 애들 둘, 강아지도 같이 가”"
         /** 탑승자를 묻는 동안 대답 없이 이만큼 주행하면 혼자 운전으로 보고 시작합니다 */
         private const val ASK_TIMEOUT_DRIVE_SEC = 10
@@ -699,9 +707,30 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
             r[Seat.D] = Rider.ADULT
             val front = MutableList(elders) { Rider.ELDER } + List(adults) { Rider.ADULT }
             val back = MutableList(kids) { Rider.KID } + (if (pet) listOf(Rider.PET) else emptyList())
+            // "조수석에 아이", "할머니는 앞자리"처럼 조수석을 직접 말하면 그 사람을 조수석에 앉힙니다
+            val asked = frontSeatRider(t, kidWords, elderWords, adultWords, petWords)
+            val everyone = (front + back).toMutableList()
+            if (asked != null && everyone.remove(asked)) {
+                r[Seat.P] = asked
+                listOf(Seat.RL, Seat.RR, Seat.RM).zip(everyone.filter { it == Rider.KID || it == Rider.PET } +
+                    everyone.filter { it == Rider.ELDER || it == Rider.ADULT }).forEach { (s, who) -> r[s] = who }
+                return r
+            }
+            // 따로 말하지 않으면: 어르신·어른이 조수석, 아이·반려동물은 뒷좌석
             if (front.isNotEmpty()) r[Seat.P] = front.first()
             listOf(Seat.RL, Seat.RR, Seat.RM).zip(back + front.drop(1)).forEach { (s, who) -> r[s] = who }
             return r
+        }
+
+        private val frontSeatWords = listOf("조수석", "앞자리", "앞좌석", "옆자리", "보조석")
+
+        /** 조수석을 말한 마디(쉼표·'그리고'·'하고'·'랑'으로 나눈 부분)에 나온 탑승자. 없으면 null */
+        private fun frontSeatRider(t: String, kid: List<String>, elder: List<String>, adult: List<String>, pet: List<String>): Rider? {
+            val clause = t.split(Regex("[,，.]|그리고|하고|랑")).firstOrNull { c -> frontSeatWords.any { c.contains(it) } } ?: return null
+            // 마디 안에서 먼저 나온 사람 기준
+            return listOf(Rider.KID to kid, Rider.ELDER to elder, Rider.ADULT to adult, Rider.PET to pet)
+                .mapNotNull { (who, words) -> words.mapNotNull { w -> clause.indexOf(w).takeIf { it >= 0 } }.minOrNull()?.let { it to who } }
+                .minByOrNull { it.first }?.second
         }
     }
 }
