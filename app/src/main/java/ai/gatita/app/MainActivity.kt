@@ -83,6 +83,8 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
     private var ringTitle: TextView? = null
     private var elapsed: TextView? = null
     private var bubbleText: TextView? = null
+    /** 탑승자 묻기 화면: 앱이 이해한 탑승자를 정리해 보여 주는 줄 */
+    private var heardText: TextView? = null
     private var driveText: TextView? = null
     private var map: NavMapView? = null
     private var restCard: View? = null
@@ -129,11 +131,16 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
     private fun onHeardRiders(heard: String) {
         if (mode != Mode.ASK) return
         val found = parseRiders(heard)
-        if (found == null) { voice.say("자리를 눌러서 알려 주셔도 돼요."); return }
+        if (found == null) {
+            showHeard(null)
+            voice.say("자리를 눌러서 알려 주셔도 돼요.")
+            return
+        }
         riders.putAll(found)
         seatMap?.invalidate()
+        showHeard(found)
         voice.say("${summary()}, 같이 출발할게요.")
-        ui.postDelayed({ startTrip() }, 2500)
+        ui.postDelayed({ startTrip() }, 3500)   // 정리된 탑승자 문구를 읽을 시간
     }
 
     /** 좌석을 누를 때마다 ? → 어른 → 아이 → 어르신 → 반려동물 */
@@ -142,6 +149,7 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
         val order = Rider.values()
         riders[seat] = order[(riders.getValue(seat).ordinal + 1) % order.size]
         seatMap?.invalidate()
+        showHeard(riders)
         // 이미 주행 중이면 4초 동안 더 누르지 않을 때 시작 (정차 중이면 출발할 때 시작)
         ui.removeCallbacks(startFromTaps)
         if (!parked) ui.postDelayed(startFromTaps, 4000)
@@ -171,7 +179,9 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
             }
             else -> {
                 ambient(Pal.SOLO)
-                voice.say("혼자 운전하시는군요. 오래 운전하시면 쉬어 갈 곳을 알려 드릴게요.")
+                // 아이·반려동물이 없을 때. 어른·어르신이 함께면 "혼자"라고 하지 않습니다
+                if (summary() == "혼자") voice.say("혼자 운전하시는군요. 오래 운전하시면 쉬어 갈 곳을 알려 드릴게요.")
+                else voice.say("오래 운전하시면 쉬어 갈 곳을 알려 드릴게요.")
             }
         }
         render()
@@ -346,7 +356,7 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
     private fun show(id: String, railOn: String, color: Int, build: () -> View) {
         if (screen == id) return
         screen = id
-        wave = null; seatMap = null; ring = null; ringTitle = null; elapsed = null; bubbleText = null
+        wave = null; seatMap = null; ring = null; ringTitle = null; elapsed = null; bubbleText = null; heardText = null
         driveText = null; map = null; restCard = null; restName = null; restInfo = null; restButtons = null
         stage.removeAllViews()
         stage.addView(build(), FrameLayout.LayoutParams(-1, -1))
@@ -399,8 +409,34 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
         addView(h1("오늘 누구와 함께하시나요?"))
         val w = WaveView(context, Pal.KID); wave = w
         addView(w, lp(1340, 170, top = 44))
+        // 들은 말 그대로가 아니라, 앱이 이해한 탑승자를 정리해 보여 줍니다
+        val heard = text(HEARD_HINT, 40, Pal.MUTE, 400).apply { gravity = Gravity.CENTER }
+        heardText = heard
+        addView(heard, lp(-2, -2, top = 30))
         val m = SeatMapView(context, riders) { tapSeat(it) }; seatMap = m
-        addView(m, lp(1080, 468, top = 50))
+        addView(m, lp(1080, 468, top = 30))
+    }
+
+    /** 이해한 탑승자를 "아이 2명 · 어르신 1명 · 반려동물"처럼 정리해 표시. null이면 못 알아들음 */
+    private fun showHeard(found: Map<Seat, Rider>?) {
+        val t = heardText ?: return
+        if (found == null) {
+            t.text = "잘 못 알아들었어요 · 자리를 눌러 알려 주세요"
+            t.setTextColor(Pal.ALERT)
+            return
+        }
+        val n = { r: Rider -> found.values.count { it == r } }
+        val parts = mutableListOf<String>()
+        if (n(Rider.KID) > 0) parts += "아이 ${n(Rider.KID)}명"
+        if (n(Rider.ELDER) > 0) parts += "어르신 ${n(Rider.ELDER)}명"
+        if (n(Rider.ADULT) - 1 > 0) parts += "어른 ${n(Rider.ADULT) - 1}명"   // 운전자 제외
+        if (n(Rider.PET) > 0) parts += "반려동물 ${n(Rider.PET)}마리"
+        val body = parts.joinToString(" · ")
+        // 마지막 글자 받침이 있으면 "과", 없으면 "와" (명→과, 마리→와)
+        val last = body.lastOrNull() ?: '가'
+        val josa = if (last in '가'..'힣' && (last - '가') % 28 != 0) "과" else "와"
+        t.text = if (parts.isEmpty()) "✓ 혼자 운전" else "✓ $body$josa 함께"
+        t.setTextColor(Color.WHITE)
     }
 
     private fun kidScreen(): View = col().apply {
@@ -620,6 +656,7 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
 
     companion object {
         private const val TAG = "GatiTa"
+        private const val HEARD_HINT = "예) “할머니랑 애들 둘, 강아지도 같이 가”"
         /** 탑승자를 묻는 동안 대답 없이 이만큼 주행하면 혼자 운전으로 보고 시작합니다 */
         private const val ASK_TIMEOUT_DRIVE_SEC = 10
         private const val SOLO_ALERT_SEC = 60      // 시연용. 실제 서비스는 연속 주행 시간·시간대·응답 지연으로 판단
