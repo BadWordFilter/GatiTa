@@ -25,6 +25,14 @@ class RiderParseTest {
         println(out)
     }
 
+    @Test fun spokenReviewCommands() {
+        assertEquals("retry", MainActivity.reviewCommand("다시 말할래"))
+        assertEquals("retry", MainActivity.reviewCommand("아니야 다시 얘기할게"))
+        assertEquals("confirm", MainActivity.reviewCommand("어 맞아"))
+        assertEquals("confirm", MainActivity.reviewCommand("네 맞아요"))
+        assertNull(MainActivity.reviewCommand("아이랑 같이 가요"))
+    }
+
     @Test fun basicCases() {
         assertEquals(Rider.KID, MainActivity.parseRiders("애들이랑")!![Seat.RL])
         assertEquals(Rider.PET, MainActivity.parseRiders("강아지랑")!![Seat.RL])

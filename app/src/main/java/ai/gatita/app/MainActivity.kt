@@ -122,6 +122,21 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
     // ───────── 흐름 ─────────
 
     private var riderReview = false
+    private var ridersConfirmed = false
+
+    private fun listenRiders() {
+        if (mode == Mode.ASK) voice.listen { heard -> ui.post { onHeardRiders(heard) } }
+    }
+
+    private fun retryRiders() {
+        if (mode != Mode.ASK) return
+        riderReview = true
+        ridersConfirmed = false
+        voice.stopListening()
+        heardText?.text = "다시 듣고 있어요 · 자리와 탑승자를 함께 말해 주세요"
+        voice.say("다시 말씀해 주세요. 예를 들어 조수석에 엄마, 뒷좌석에 아이 둘.")
+        listenRiders()
+    }
 
     private fun ask() {
         mode = Mode.ASK
@@ -134,18 +149,29 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
     private fun onHeardRiders(heard: String) {
         if (mode != Mode.ASK) return
         Log.d(TAG, "탑승자 인식 원문: $heard")
+        when (reviewCommand(heard)) {
+            "retry" -> { retryRiders(); return }
+            "confirm" -> {
+                if (riderReview && ridersConfirmed) { voice.stopListening(); startTrip() }
+                else { voice.say("먼저 누가 함께 타는지 알려 주세요."); listenRiders() }
+                return
+            }
+        }
         val found = parseRiders(heard)
         if (found == null) {
             riderReview = true
             showHeard(null)
-            voice.say("자리를 눌러서 알려 주셔도 돼요.")
+            voice.say("잘 못 알아들었어요. 다시 말씀해 주세요.")
+            listenRiders()
             return
         }
+        ridersConfirmed = true
         riders.putAll(found)
         seatMap?.invalidate()
         showHeard(found)
         riderReview = true
-        voice.say("${summary()}. 좌석을 확인하고 출발하기를 눌러 주세요. 틀렸으면 다시 말하기를 눌러 주세요.")
+        voice.say("${summary()}. 맞으면 어 맞아, 틀렸으면 다시 말할래라고 말씀해 주세요.")
+        listenRiders()
     }
 
     /** 좌석을 누를 때마다 ? → 어른 → 아이 → 어르신 → 반려동물 */
@@ -155,6 +181,7 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
         riders[seat] = order[(riders.getValue(seat).ordinal + 1) % order.size]
         seatMap?.invalidate()
         riderReview = true
+        ridersConfirmed = true
         showHeard(riders)
         // 이미 주행 중이면 4초 동안 더 누르지 않을 때 시작 (정차 중이면 출발할 때 시작)
         ui.removeCallbacks(startFromTaps)
@@ -430,11 +457,7 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
         addView(m, lp(1080, 510, top = 20))
         addView(row().apply {
             addView(button("다시 말하기", Pal.KID, false) {
-                riderReview = true
-                voice.stopListening()
-                heardText?.text = "다시 듣고 있어요 · 자리와 탑승자를 함께 말해 주세요"
-                voice.say("다시 말씀해 주세요. 예를 들어 조수석에 엄마, 뒷좌석에 아이 둘.")
-                voice.listen { heard -> ui.post { onHeardRiders(heard) } }
+                retryRiders()
             })
             addView(button("출발하기", Pal.KID, true) {
                 voice.stopListening()
@@ -743,6 +766,15 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
             if (front.isNotEmpty()) r[Seat.P] = front.first()
             listOf(Seat.RL, Seat.RR, Seat.RM).zip(back + front.drop(1)).forEach { (s, who) -> r[s] = who }
             return r
+        }
+
+        internal fun reviewCommand(raw: String): String? {
+            val t = raw.replace(Regex("[\\s,.!?]"), "")
+            return when {
+                listOf("다시말", "다시할", "다시얘기", "아니야", "틀렸", "잘못").any { t.contains(it) } -> "retry"
+                t in setOf("어맞아", "응맞아", "맞아", "맞아요", "네맞아요", "어맞아요", "네", "응", "출발", "출발해", "출발하자") -> "confirm"
+                else -> null
+            }
         }
 
         private val frontSeatWords = listOf("조수석", "앞자리", "앞좌석", "옆자리", "보조석")
