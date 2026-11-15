@@ -26,6 +26,8 @@ class RiderParseTest {
     }
 
     @Test fun spokenReviewCommands() {
+        assertEquals("confirm", MainActivity.reviewCommand("확인"))
+        assertEquals("retry", MainActivity.reviewCommand("다시 입력"))
         assertEquals("retry", MainActivity.reviewCommand("다시 말할래"))
         assertEquals("retry", MainActivity.reviewCommand("아니야 다시 얘기할게"))
         assertEquals("confirm", MainActivity.reviewCommand("어 맞아"))

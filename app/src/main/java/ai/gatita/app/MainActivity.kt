@@ -170,7 +170,7 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
         seatMap?.invalidate()
         showHeard(found)
         riderReview = true
-        voice.say("${summary()}. 맞으면 어 맞아, 틀렸으면 다시 말할래라고 말씀해 주세요.")
+        voice.say("${summary()}. 탑승자 정보가 맞으면 확인, 수정하려면 다시 입력이라고 말씀해 주세요.")
         listenRiders()
     }
 
@@ -771,8 +771,8 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
         internal fun reviewCommand(raw: String): String? {
             val t = raw.replace(Regex("[\\s,.!?]"), "")
             return when {
-                listOf("다시말", "다시할", "다시얘기", "아니야", "틀렸", "잘못").any { t.contains(it) } -> "retry"
-                t in setOf("어맞아", "응맞아", "맞아", "맞아요", "네맞아요", "어맞아요", "네", "응", "출발", "출발해", "출발하자") -> "confirm"
+                listOf("다시입력", "재입력", "수정", "다시말", "다시할", "다시얘기", "아니야", "틀렸", "잘못").any { t.contains(it) } -> "retry"
+                t in setOf("확인", "확인해", "확인했어요", "정보가맞아요", "어맞아", "응맞아", "맞아", "맞아요", "네맞아요", "어맞아요", "네", "응", "출발", "출발해", "출발하자") -> "confirm"
                 else -> null
             }
         }
