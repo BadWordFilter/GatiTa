@@ -44,6 +44,9 @@ class RiderParseTest {
     private fun at(t: String, s: Seat) = MainActivity.parseRiders(t)!![s]
 
     @Test fun passengerSeat() {
+        assertEquals(Rider.ADULT, at("옆 자리에 엄마가 타고 뒤에 아이 둘", Seat.P))
+        assertEquals(Rider.PET, at("조 수석에는 강아지, 뒤에는 할머니", Seat.P))
+        assertEquals(Rider.ADULT, at("할머니랑 아이가 있고 조수석에는 엄마", Seat.P))
         assertEquals(Rider.KID, at("조수석에 아이 태웠어", Seat.P))
         assertEquals(Rider.PET, at("강아지는 앞자리에", Seat.P))
         assertEquals(Rider.KID, at("엄마랑 아이, 아이는 조수석", Seat.P))

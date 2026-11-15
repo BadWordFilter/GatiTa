@@ -121,6 +121,8 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
 
     // ───────── 흐름 ─────────
 
+    private var riderReview = false
+
     private fun ask() {
         mode = Mode.ASK
         ambient(Pal.KID)
@@ -131,8 +133,10 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
 
     private fun onHeardRiders(heard: String) {
         if (mode != Mode.ASK) return
+        Log.d(TAG, "탑승자 인식 원문: $heard")
         val found = parseRiders(heard)
         if (found == null) {
+            riderReview = true
             showHeard(null)
             voice.say("자리를 눌러서 알려 주셔도 돼요.")
             return
@@ -140,8 +144,8 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
         riders.putAll(found)
         seatMap?.invalidate()
         showHeard(found)
-        voice.say("${summary()}, 같이 출발할게요.")
-        ui.postDelayed({ startTrip() }, 3500)   // 정리된 탑승자 문구를 읽을 시간
+        riderReview = true
+        voice.say("${summary()}. 좌석을 확인하고 출발하기를 눌러 주세요. 틀렸으면 다시 말하기를 눌러 주세요.")
     }
 
     /** 좌석을 누를 때마다 ? → 어른 → 아이 → 어르신 → 반려동물 */
@@ -150,10 +154,11 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
         val order = Rider.values()
         riders[seat] = order[(riders.getValue(seat).ordinal + 1) % order.size]
         seatMap?.invalidate()
+        riderReview = true
         showHeard(riders)
         // 이미 주행 중이면 4초 동안 더 누르지 않을 때 시작 (정차 중이면 출발할 때 시작)
         ui.removeCallbacks(startFromTaps)
-        if (!parked) ui.postDelayed(startFromTaps, 4000)
+        // 사용자가 출발하기로 확인할 때까지 입력 화면 유지
     }
 
     private val startFromTaps = Runnable { startTrip() }
@@ -194,7 +199,7 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
             if (!naviLive && remainSec > 0 && !parked) remainSec = (remainSec - SIM_SPEED).coerceAtLeast(0)
             if (!parked) driveSeconds++
             // 대답도 좌석 선택도 없이 출발하면 잠시 뒤 혼자 운전으로 시작
-            if (mode == Mode.ASK && !parked && driveSeconds >= ASK_TIMEOUT_DRIVE_SEC) startTrip()
+            if (mode == Mode.ASK && !riderReview && !parked && driveSeconds >= ASK_TIMEOUT_DRIVE_SEC) startTrip()
             // 휴게소 방향 판단에 쓰도록 주행 중에는 10초마다 현재 위치(진행 방향 포함)를 새로 받음
             if (!parked && driveSeconds % 10 == 0) navi.requestLocation()
             when (mode) {
@@ -300,7 +305,7 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
         this.parked = parked; gearLabel = label
         if (parked && wasDriving) { rearOpenedSincePark = false; driveSeconds = 0; soloAlerted = false }
         // 좌석을 눌러 탑승자를 정해 둔 채 출발하면 그대로 시작
-        if (!parked && !wasDriving && mode == Mode.ASK && riders.any { (s, r) -> s != Seat.D && r != Rider.NONE }) startTrip()
+        // 탑승자를 입력했다면 기어 전환으로 자동 확정하지 않습니다
         refresh()
     }.let { }
 
@@ -422,7 +427,20 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
         heardText = heard
         addView(heard, lp(-2, -2, top = 30))
         val m = SeatMapView(context, riders) { tapSeat(it) }; seatMap = m
-        addView(m, lp(1080, 620, top = 20))
+        addView(m, lp(1080, 510, top = 20))
+        addView(row().apply {
+            addView(button("다시 말하기", Pal.KID, false) {
+                riderReview = true
+                voice.stopListening()
+                heardText?.text = "다시 듣고 있어요 · 자리와 탑승자를 함께 말해 주세요"
+                voice.say("다시 말씀해 주세요. 예를 들어 조수석에 엄마, 뒷좌석에 아이 둘.")
+                voice.listen { heard -> ui.post { onHeardRiders(heard) } }
+            })
+            addView(button("출발하기", Pal.KID, true) {
+                voice.stopListening()
+                startTrip()
+            }, lp(-2, -2, start = 30))
+        }, lp(-2, -2, top = 20))
     }
 
     /** 이해한 탑승자를 "아이 2명 · 어르신 1명 · 반려동물"처럼 정리해 표시. null이면 못 알아들음 */
@@ -439,11 +457,14 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
         if (n(Rider.ELDER) > 0) parts += "어르신 ${n(Rider.ELDER)}명"
         if (n(Rider.ADULT) - 1 > 0) parts += "어른 ${n(Rider.ADULT) - 1}명"   // 운전자 제외
         if (n(Rider.PET) > 0) parts += "반려동물 ${n(Rider.PET)}마리"
+        val passenger = when (found[Seat.P]) {
+            Rider.ADULT -> "어른"; Rider.ELDER -> "어르신"; Rider.KID -> "아이"; Rider.PET -> "반려동물"; else -> "비어 있음"
+        }
         val body = parts.joinToString(" · ")
         // 마지막 글자 받침이 있으면 "과", 없으면 "와" (명→과, 마리→와)
         val last = body.lastOrNull() ?: '가'
         val josa = if (last in '가'..'힣' && (last - '가') % 28 != 0) "과" else "와"
-        t.text = if (parts.isEmpty()) "✓ 혼자 운전" else "✓ $body$josa 함께"
+        t.text = if (parts.isEmpty()) "✓ 혼자 운전" else "✓ $body$josa 함께 · 조수석: $passenger"
         t.setTextColor(Color.WHITE)
     }
 
@@ -675,7 +696,9 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
          * "할머니랑 애들 둘, 강아지도 같이 가" → 좌석별 탑승자. 알아들은 사람이 없으면 null.
          * 운전석은 어른, 조수석은 어르신·어른 한 명, 아이·반려동물은 뒷좌석(창가 먼저, 가운데 마지막).
          */
-        internal fun parseRiders(t: String): Map<Seat, Rider>? {
+        internal fun parseRiders(raw: String): Map<Seat, Rider>? {
+            // STT의 띄어쓰기 차이를 정규화 ("조 수석", "옆 자리" 등)
+            val t = raw.replace(Regex("\\s+"), "")
             val kidWords = listOf("아이", "애들", "애기", "아기", "아들", "딸", "손주", "애")
             val elderWords = listOf("할머니", "할아버지", "어르신", "부모님")
             val adultWords = listOf("엄마", "아빠", "남편", "아내", "와이프", "친구")
@@ -726,11 +749,23 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
 
         /** 조수석을 말한 마디(쉼표·'그리고'·'하고'·'랑'으로 나눈 부분)에 나온 탑승자. 없으면 null */
         private fun frontSeatRider(t: String, kid: List<String>, elder: List<String>, adult: List<String>, pet: List<String>): Rider? {
-            val clause = t.split(Regex("[,，.]|그리고|하고|랑")).firstOrNull { c -> frontSeatWords.any { c.contains(it) } } ?: return null
-            // 마디 안에서 먼저 나온 사람 기준
-            return listOf(Rider.KID to kid, Rider.ELDER to elder, Rider.ADULT to adult, Rider.PET to pet)
-                .mapNotNull { (who, words) -> words.mapNotNull { w -> clause.indexOf(w).takeIf { it >= 0 } }.minOrNull()?.let { it to who } }
-                .minByOrNull { it.first }?.second
+            val seatPattern = Regex(frontSeatWords.joinToString("|"))
+            val seat = seatPattern.find(t) ?: return null
+            val words = listOf(Rider.KID to kid, Rider.ELDER to elder, Rider.ADULT to adult, Rider.PET to pet)
+            val mentions = words.flatMap { (who, aliases) -> aliases.flatMap { alias ->
+                Regex(Regex.escape(alias)).findAll(t).map { it.range to who }.toList()
+            } }
+            // 자리 표현 바로 뒤의 탑승자를 우선. 다음 좌석 표현을 넘어가서 찾지 않음.
+            val before = mentions.filter { it.first.last < seat.range.first }.maxByOrNull { it.first.last }
+            if (before != null) {
+                val between = t.substring(before.first.last + 1, seat.range.first)
+                if (between.matches(Regex("는|은|이가|가|이|"))) return before.second
+            }
+            val nextSeat = Regex("[,，.]|그리고|뒷자리|뒷좌석|뒤쪽|뒤에는|뒤에|조수석|옆자리|앞자리").find(t, seat.range.last + 1)?.range?.first ?: t.length
+            val after = mentions.filter { it.first.first > seat.range.last && it.first.first < nextSeat }
+                .minByOrNull { it.first.first }
+            if (after != null) return after.second
+            return mentions.filter { it.first.last < seat.range.first }.maxByOrNull { it.first.last }?.second
         }
     }
 }

@@ -72,7 +72,7 @@ class Voice(private val context: Context, private val onLog: (String) -> Unit) {
                 override fun onFailure(error: SttError) { onLog("Pleos STT 실패($error) → 화면 버튼 사용") }
             })
             s.addListener(object : ResultListener {
-                override fun onUpdated(text: String, isFinal: Boolean) { if (isFinal) onHeard?.invoke(text) }
+                override fun onUpdated(text: String, isFinal: Boolean) { if (isFinal) { val callback = onHeard; onHeard = null; callback?.invoke(text) } }
                 override fun onUpdatedEpdData(start: Long, end: Long) {}
                 override fun onStartedRecognition() {}
                 override fun onEndedRecognition() {}
@@ -150,7 +150,14 @@ class Voice(private val context: Context, private val onLog: (String) -> Unit) {
     }
 
     /** 음성 인식을 시작하고, 최종 결과를 콜백으로 전달 */
+    fun stopListening() {
+        onHeard = null
+        afterSpeech = null
+        runCatching { stt?.stop() }
+    }
+
     fun listen(callback: (String) -> Unit) {
+        stopListening()
         onHeard = callback
         // 앱이 말하는 중에 마이크를 열면 자기 목소리를 듣거나 재생이 흔들릴 수 있어, 말이 끝난 뒤 듣습니다
         whenQuiet {
