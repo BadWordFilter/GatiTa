@@ -319,13 +319,19 @@ class SeatMapView(ctx: Context, private val riders: Map<Seat, Rider>, private va
         }
     }
 
-    override fun onTouchEvent(e: MotionEvent): Boolean {
-        if (e.action == MotionEvent.ACTION_UP) {
-            val x = (e.x - ox) / k; val y = (e.y - oy) / k
-            rects.entries.firstOrNull { it.key != Seat.D && it.value.contains(x, y) }?.let { onTap(it.key); performClick() }
-        }
-        return true
+    private fun hit(e: MotionEvent): Seat? {
+        val x = (e.x - ox) / k; val y = (e.y - oy) / k
+        return rects.entries.firstOrNull { it.key != Seat.D && it.value.contains(x, y) }?.key
     }
+    private val gestures = android.view.GestureDetector(ctx, object : android.view.GestureDetector.SimpleOnGestureListener() {
+        override fun onDown(e: MotionEvent): Boolean = true
+        override fun onSingleTapUp(e: MotionEvent): Boolean {
+            hit(e)?.let { onTap(it); performClick() }
+            return true
+        }
+
+    })
+    override fun onTouchEvent(e: MotionEvent): Boolean = isEnabled && gestures.onTouchEvent(e)
 
     override fun performClick(): Boolean = super.performClick()
 }

@@ -2,6 +2,7 @@ package ai.gatita.app
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
@@ -86,6 +87,13 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
     private var bubbleText: TextView? = null
     /** 탑승자 묻기 화면: 앱이 이해한 탑승자를 정리해 보여 주는 줄 */
     private var heardText: TextView? = null
+    private var transcriptView: TextView? = null
+    private var voiceStatusView: TextView? = null
+    private val touchControls = mutableListOf<View>()
+    private var seatDialog: AlertDialog? = null
+    private var touchHint: TextView? = null
+    private var lastTranscript = ""
+    private var voiceStatus = "안내를 준비하고 있어요"
     private var driveText: TextView? = null
     private var map: NavMapView? = null
     private var restCard: View? = null
@@ -103,6 +111,20 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
 
         voice = Voice(this) { log(it) }.also { it.start() }
         // shortcut: STT RMS 범위를 0~10으로 가정. 실기에서 값 범위를 보고 나누는 수를 조정
+        voice.onTranscript = { words -> ui.post {
+            lastTranscript = words
+            transcriptView?.text = "들은 내용: “$words”"
+        } }
+        voice.onState = { state -> ui.post {
+            voiceStatus = when (state) {
+                Voice.State.IDLE -> "다시 말하기 또는 좌석을 선택해 주세요"
+                Voice.State.SPEAKING -> "안내 중 · 잠시 기다려 주세요"
+                Voice.State.LISTENING -> "말씀해 주세요 · 듣고 있어요"
+                Voice.State.PROCESSING -> "들은 내용을 확인하고 있어요"
+                Voice.State.ERROR -> "음성 입력을 확인해 주세요 · 다시 말하기를 누를 수 있어요"
+            }
+            voiceStatusView?.text = voiceStatus
+        } }
         voice.onRms = { rms -> wave?.level = (rms / 10f).coerceIn(0f, 1f) }
         vehicle = VehicleBridge(this, this).also { it.start() }
         navi = NaviBridge(this, this).also { it.start() }
@@ -157,7 +179,7 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
                 return
             }
         }
-        val found = parseRiders(heard)
+        val found = if (riders.any { (seat, who) -> seat != Seat.D && who != Rider.NONE } && RiderEdits.hasSeat(heard)) RiderEdits.apply(riders, heard) else parseRiders(heard)
         if (found == null) {
             riderReview = true
             showHeard(null)
@@ -174,25 +196,41 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
         listenRiders()
     }
 
-    /** 좌석을 누를 때마다 ? → 어른 → 아이 → 어르신 → 반려동물 */
-    private fun tapSeat(seat: Seat) {
+    private fun chooseSeat(seat: Seat) {
         if (mode != Mode.ASK || seat == Seat.D) return
-        val order = Rider.values()
-        riders[seat] = order[(riders.getValue(seat).ordinal + 1) % order.size]
-        seatMap?.invalidate()
-        riderReview = true
-        ridersConfirmed = true
-        showHeard(riders)
-        // 이미 주행 중이면 4초 동안 더 누르지 않을 때 시작 (정차 중이면 출발할 때 시작)
-        ui.removeCallbacks(startFromTaps)
-        // 사용자가 출발하기로 확인할 때까지 입력 화면 유지
+        if (!parked) { voice.say("좌석 메뉴는 정차 후 이용해 주세요."); return }
+        voice.stopListening()
+        val names = arrayOf("빈자리", "어른", "아이", "어르신", "반려동물")
+        val title = when (seat) {
+            Seat.P -> "조수석"; Seat.RL -> "뒷좌석 왼쪽"; Seat.RM -> "뒷좌석 가운데"; else -> "뒷좌석 오른쪽"
+        }
+        val dialog = AlertDialog.Builder(this).setTitle("$title 탑승자")
+            .setSingleChoiceItems(names, riders.getValue(seat).ordinal) { dialog, which ->
+                riders[seat] = Rider.values()[which]
+                ridersConfirmed = true; riderReview = true
+                seatMap?.invalidate(); showHeard(riders)
+                dialog.dismiss()
+            }.setNegativeButton("취소", null).create()
+        seatDialog = dialog
+        dialog.setOnDismissListener { seatDialog = null; if (mode == Mode.ASK) listenRiders() }
+        dialog.show()
+        dialog.window?.setLayout((resources.displayMetrics.widthPixels * 0.55f).toInt(), -2)
+        // 차량 화면에서도 항목을 한 번에 누를 수 있도록 행과 글자를 크게 표시합니다.
+        dialog.listView.layoutParams = dialog.listView.layoutParams.apply {
+            height = (76 * names.size * resources.displayMetrics.density).toInt()
+        }
+        dialog.listView.setOnHierarchyChangeListener(object : android.view.ViewGroup.OnHierarchyChangeListener {
+            override fun onChildViewAdded(parent: View?, child: View?) {
+                (child as? TextView)?.apply { textSize = 28f; minHeight = (76 * resources.displayMetrics.density).toInt() }
+            }
+            override fun onChildViewRemoved(parent: View?, child: View?) {}
+        })
     }
 
-    private val startFromTaps = Runnable { startTrip() }
 
     private fun startTrip() {
         if (mode != Mode.ASK) return
-        ui.removeCallbacks(startFromTaps)
+        voice.stopListening()
         if (riders[Seat.D] == Rider.NONE) riders[Seat.D] = Rider.ADULT
         val kids = count(Rider.KID)
         val pet = count(Rider.PET) > 0
@@ -226,7 +264,7 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
             if (!naviLive && remainSec > 0 && !parked) remainSec = (remainSec - SIM_SPEED).coerceAtLeast(0)
             if (!parked) driveSeconds++
             // 대답도 좌석 선택도 없이 출발하면 잠시 뒤 혼자 운전으로 시작
-            if (mode == Mode.ASK && !riderReview && !parked && driveSeconds >= ASK_TIMEOUT_DRIVE_SEC) startTrip()
+            // 탑승자 입력은 시간이나 기어 변화로 자동 확정하지 않습니다.
             // 휴게소 방향 판단에 쓰도록 주행 중에는 10초마다 현재 위치(진행 방향 포함)를 새로 받음
             if (!parked && driveSeconds % 10 == 0) navi.requestLocation()
             when (mode) {
@@ -330,6 +368,7 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
     override fun onGear(parked: Boolean, label: String) = ui.post {
         val wasDriving = !this.parked
         this.parked = parked; gearLabel = label
+        if (!parked) seatDialog?.dismiss()
         if (parked && wasDriving) { rearOpenedSincePark = false; driveSeconds = 0; soloAlerted = false }
         // 좌석을 눌러 탑승자를 정해 둔 채 출발하면 그대로 시작
         // 탑승자를 입력했다면 기어 전환으로 자동 확정하지 않습니다
@@ -398,12 +437,15 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
         screen = id
         wave = null; seatMap = null; ring = null; ringTitle = null; elapsed = null; bubbleText = null; heardText = null
         driveText = null; map = null; restCard = null; restName = null; restInfo = null; restButtons = null
+        touchControls.clear()
         stage.removeAllViews()
         stage.addView(build(), FrameLayout.LayoutParams(-1, -1))
         railIcons.forEach { (name, v) -> v.color = if (name == railOn) color else Pal.MUTE; v.glow = name == railOn; v.invalidate() }
     }
 
     private fun refresh() {
+        touchControls.forEach { control -> control.isEnabled = parked; control.alpha = if (parked) 1f else 0.4f }
+        touchHint?.text = if (parked) "좌석을 한 번 눌러 탑승자를 선택해 주세요" else "주행 중에는 음성으로 선택해 주세요"
         // 상단 줄
         val active = mode != Mode.ASK
         modeDot.visibility = if (active) View.VISIBLE else View.GONE
@@ -448,13 +490,20 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
     private fun askScreen(): View = col().apply {
         addView(h1("오늘 누구와 함께하시나요?"))
         val w = WaveView(context, Pal.KID); wave = w
-        addView(w, lp(1340, 170, top = 44))
+        addView(w, lp(1340, 100, top = 20))
+        voiceStatusView = text(voiceStatus, 30, Pal.KID, 500).also { addView(it, lp(-1, -2, top = 12)) }
+        transcriptView = text(if (lastTranscript.isEmpty()) "들은 내용이 여기에 표시됩니다" else "들은 내용: “$lastTranscript”", 30, Pal.DIM).also {
+            it.maxLines = 2; it.ellipsize = TextUtils.TruncateAt.END
+            addView(it, lp(1450, -2, top = 12))
+        }
         // 들은 말 그대로가 아니라, 앱이 이해한 탑승자를 정리해 보여 줍니다
         val heard = text(HEARD_HINT, 40, Pal.MUTE, 400).apply { gravity = Gravity.CENTER }
         heardText = heard
         addView(heard, lp(-2, -2, top = 30))
-        val m = SeatMapView(context, riders) { tapSeat(it) }; seatMap = m
-        addView(m, lp(1080, 510, top = 20))
+        val m = SeatMapView(context, riders) { chooseSeat(it) }; seatMap = m
+        touchControls.add(m)
+        addView(m, lp(1080, 440, top = 12))
+        touchHint = text("", 28, Pal.DIM).also { addView(it, lp(-1, -2, top = 8)) }
         addView(row().apply {
             addView(button("다시 말하기", Pal.KID, false) {
                 retryRiders()
@@ -520,7 +569,8 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
             val card = col().apply {
                 addView(IconView(context, icon, Pal.CHOICE, glow = true), lp(200, 200))
                 addView(text(label, 60, Color.WHITE, 700), lp(-2, -2, top = 24))
-                setOnClickListener { chooseBranch(forest) }
+                touchControls.add(this)
+                setOnClickListener { if (parked) chooseBranch(forest) }
             }
             cards.addView(outline(card, Pal.CHOICE, true, 44), lp(560, 440, start = if (i == 0) 0 else 44))
         }
@@ -703,7 +753,8 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
         addView(text(label, 46, if (primary) color else Color.WHITE, 600))
         outline(this, color, primary, 999)
         if (!primary) (background as GradientDrawable).setStroke(2.ipx().coerceAtLeast(1), Pal.LINE2)
-        setOnClickListener { onClick() }
+        touchControls.add(this)
+        setOnClickListener { if (parked) onClick() }
     }
 
     companion object {
@@ -711,7 +762,6 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
         private const val CLAMP_SAY_GAP_MS = 8000L
         private const val HEARD_HINT = "예) “할머니랑 애들 둘, 강아지도 같이 가”"
         /** 탑승자를 묻는 동안 대답 없이 이만큼 주행하면 혼자 운전으로 보고 시작합니다 */
-        private const val ASK_TIMEOUT_DRIVE_SEC = 10
         private const val SOLO_ALERT_SEC = 60      // 시연용. 실제 서비스는 연속 주행 시간·시간대·응답 지연으로 판단
         private const val SIM_SPEED = 10           // 시뮬레이션 경로: 1초에 10초씩 줄어듦
 

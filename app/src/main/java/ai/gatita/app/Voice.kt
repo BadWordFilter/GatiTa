@@ -1,6 +1,8 @@
 package ai.gatita.app
 
 import android.content.Context
+import android.media.ToneGenerator
+import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
 import java.util.Locale
@@ -29,6 +31,11 @@ class Voice(private val context: Context, private val onLog: (String) -> Unit) {
     private var sttReady = false
     private var onHeard: ((String) -> Unit)? = null
     /** 음성 인식 중 마이크 소리 크기 (화면 파형용) */
+    enum class State { IDLE, SPEAKING, LISTENING, PROCESSING, ERROR }
+    var onState: ((State) -> Unit)? = null
+    var onTranscript: ((String) -> Unit)? = null
+    private val listeningTone = ToneGenerator(AudioManager.STREAM_MUSIC, 30)
+    private fun state(value: State) { main.post { onState?.invoke(value) } }
     var onRms: ((Float) -> Unit)? = null
     @Volatile private var lastText: String? = null
 
@@ -72,11 +79,23 @@ class Voice(private val context: Context, private val onLog: (String) -> Unit) {
                 override fun onFailure(error: SttError) { onLog("Pleos STT 실패($error) → 화면 버튼 사용") }
             })
             s.addListener(object : ResultListener {
-                override fun onUpdated(text: String, isFinal: Boolean) { if (isFinal) { val callback = onHeard; onHeard = null; callback?.invoke(text) } }
+                override fun onUpdated(text: String, isFinal: Boolean) {
+                    if (onHeard == null) return
+                    main.post { onTranscript?.invoke(text) }
+                    if (isFinal) {
+                        state(State.PROCESSING)
+                        val callback = onHeard; onHeard = null; callback?.invoke(text)
+                    }
+                }
                 override fun onUpdatedEpdData(start: Long, end: Long) {}
-                override fun onStartedRecognition() {}
-                override fun onEndedRecognition() {}
-                override fun onError(error: SttError) { onLog("STT 오류: $error") }
+                override fun onStartedRecognition() {
+                    if (onHeard != null) {
+                        state(State.LISTENING)
+                        listeningTone.startTone(ToneGenerator.TONE_PROP_BEEP, 90)
+                    }
+                }
+                override fun onEndedRecognition() { if (onHeard != null) state(State.PROCESSING) }
+                override fun onError(error: SttError) { onLog("STT 오류: $error"); state(State.ERROR) }
                 override fun onReady() {}
                 override fun onUpdatedRms(rms: Double) { onRms?.invoke(rms.toFloat()) }
             })
@@ -114,6 +133,7 @@ class Voice(private val context: Context, private val onLog: (String) -> Unit) {
             speaking = true; currentDone = false
             t
         }
+        state(State.SPEAKING)
         onLog("🔊 $text")
         lastText = text
         // onDone이 오지 않는 경우를 대비: 한국어 낭독 속도(약 6자/초)로 어림한 시간 + 여유
@@ -154,6 +174,7 @@ class Voice(private val context: Context, private val onLog: (String) -> Unit) {
         onHeard = null
         afterSpeech = null
         runCatching { stt?.stop() }
+        state(State.IDLE)
     }
 
     fun listen(callback: (String) -> Unit) {
@@ -161,7 +182,8 @@ class Voice(private val context: Context, private val onLog: (String) -> Unit) {
         onHeard = callback
         // 앱이 말하는 중에 마이크를 열면 자기 목소리를 듣거나 재생이 흔들릴 수 있어, 말이 끝난 뒤 듣습니다
         whenQuiet {
-            if (sttReady) runCatching { stt?.request() }.onFailure { onLog("STT 요청 실패: ${it.message}") }
+            if (sttReady) runCatching { stt?.request() }.onFailure { onLog("STT 요청 실패: ${it.message}"); state(State.ERROR) }
+            else state(State.ERROR)
         }
     }
 
@@ -169,6 +191,7 @@ class Voice(private val context: Context, private val onLog: (String) -> Unit) {
         main.removeCallbacksAndMessages(null)
         runCatching { pleosTts?.release() }
         runCatching { stt?.release() }
+        listeningTone.release()
         fallbackTts?.shutdown()
     }
 }
