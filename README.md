@@ -30,13 +30,13 @@
 | 항목 | 값 |
 |---|---|
 | Pleos Connect Emulator | v2.1.0 (Android API 34, x86_64) |
-| 화면 규격 | Pleos Connect v2.1.0 AVD 기본 해상도 (가로형) |
+| 화면 규격 | 2560 × 1440, mdpi(160dpi), 가로형 (Pleos Connect v2.1.0 AVD 기본값) |
 | minSdk / targetSdk | 28 / 34 |
 | 빌드 | Gradle 8.9, AGP 8.5.2, Kotlin 1.9.25, JDK 17 |
 | Pleos SDK | Vehicle 2.3.2, NaviHelper 3.0.5, TextToSpeech 3.3.1, SpeechToText 3.3.1 |
 
 - 마이크 권한(`RECORD_AUDIO`)을 허용하면 음성으로 모드와 이야기 갈림길을 고를 수 있습니다. 음성 인식이 안 되는 환경에서는 화면 버튼으로 고를 수 있습니다.
-- 내비게이션 경로가 없으면 5초 뒤 **시연용 10분 경로를 시뮬레이션**합니다(남은 시간 표시에 "시뮬레이션" 표기). 실제 경로가 설정되면 NaviHelper의 남은 시간을 사용합니다.
+- 내비게이션 경로가 없으면 5초 뒤 **시연용 13분 20초 경로를 시뮬레이션**합니다(남은 시간 표시에 "시뮬레이션" 표기). 실제 경로가 설정되면 NaviHelper의 남은 시간을 사용합니다.
 - Pleos TTS 초기화에 실패하면 Android 기본 TTS로 대체합니다.
 
 ## 빌드

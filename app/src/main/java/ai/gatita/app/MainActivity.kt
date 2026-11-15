@@ -70,8 +70,8 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
 
         ui.postDelayed({ ask() }, 1500)
         ui.postDelayed(tick, 1000)
-        // 5초 안에 내비 경로 정보가 없으면 시연용 경로(10분)를 시뮬레이션합니다.
-        ui.postDelayed({ if (!naviLive && remainSec < 0) { remainSec = 600; setSig("eta", "10분 (시뮬레이션)") } }, 5000)
+        // 5초 안에 내비 경로 정보가 없으면 시연용 경로(13분 20초)를 시뮬레이션합니다.
+        ui.postDelayed({ if (!naviLive && remainSec < 0) { remainSec = 800; setSig("eta", "13분 20초 (시뮬레이션)") } }, 5000)
     }
 
     override fun onDestroy() {
@@ -107,7 +107,7 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
         setButtons()
         when (m) {
             Mode.KID -> {
-                val r = if (remainSec > 0) remainSec else 600
+                val r = if (remainSec > 0) remainSec else 800
                 story.plan(r); lastStoriesLeft = story.storiesLeft(r)
                 ambient(0x3D6BFF)
                 voice.say("좋아요. 도착할 때까지 이야기 ${lastStoriesLeft}개를 준비했어요.")
@@ -177,6 +177,8 @@ class MainActivity : Activity(), VehicleBridge.Events, NaviBridge.Events {
         }
         setButtons("🕳️ 동굴" to { done(false) }, "🌲 숲" to { done(true) })
         ui.postDelayed({ voice.listen { h -> ui.post { if (h.contains("숲")) done(true) else if (h.contains("동굴")) done(false) } } }, 1500)
+        // 8초 안에 대답이 없으면 숲으로 진행 (주행 중 화면 조작 없이도 이야기가 이어지도록)
+        ui.postDelayed({ if (awaitingChoice) { voice.say("대답이 없네? 그럼 숲으로 가 볼까?"); ui.postDelayed({ done(true) }, 2500) } }, 8000)
     }
 
     private fun refreshKidScreen() {
